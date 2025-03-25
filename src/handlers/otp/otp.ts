@@ -19,6 +19,7 @@ export async function otpHandler(req: Request, res: Response) {
     otp,
   });
 
+  const saveOtp = await createOtp.save();
   const sendResponse: any = await sendOTP(phoneNumber, otp);
 
   console.log(sendResponse);
@@ -30,8 +31,6 @@ export async function otpHandler(req: Request, res: Response) {
     });
     return;
   }
-
-  const saveOtp = await createOtp.save();
 
   if (!saveOtp) {
     res.status(500).json({

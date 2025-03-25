@@ -36,10 +36,8 @@ export default async function handleLogin(phone: string) {
     return {
       status: true,
       message: "User logged in successfully",
-      data: {
-        token: loginToken,
-        user: data,
-      },
+      data: data,
+      token: loginToken
     };
   } catch (error) {
     return {

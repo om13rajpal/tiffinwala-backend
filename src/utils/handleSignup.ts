@@ -1,7 +1,7 @@
 import { API_KEY, BASE_URL } from "../config/config";
 import { SignupRequest } from "../handlers/user/auth";
 import userModel from "../models/user";
-import { generateToken } from "./generateToken";
+import { generateLoginToken, generateToken } from "./generateToken";
 import { validateSignup } from "./zod";
 import axios from "axios";
 
@@ -45,10 +45,13 @@ export default async function handleSignup(
 
     await user.save();
 
+    const loginToken = generateLoginToken(phoneNumber);
+
     return {
       status: true,
       message: "User created successfully",
       data: data,
+      token: loginToken
     };
   } catch (error) {
     console.log(error);
