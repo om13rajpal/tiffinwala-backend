@@ -24,7 +24,7 @@ const SignupSchema = zod.object({
     .min(10, {
       message: "Phone number must be 10 characters",
     })
-    .max(10, {
+    .max(13, {
       message: "Phone number cannot be 10 characters",
     }),
 });
@@ -35,7 +35,7 @@ const OtpSchema = zod.object({
     .min(10, {
       message: "Phone number must be 10 characters",
     })
-    .max(10, {
+    .max(13, {
       message: "Phone number cannot be 10 characters",
     })
     .nonempty({

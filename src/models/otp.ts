@@ -10,8 +10,6 @@ const otpSchema = new mongoose.Schema<OtpDocument>({
   phone: {
     type: String,
     required: true,
-    minlength: 10,
-    maxlength: 10,
     trim: true,
   },
   otp: {
@@ -24,7 +22,7 @@ const otpSchema = new mongoose.Schema<OtpDocument>({
   createdAt: {
     type: Date,
     default: Date.now(),
-    expires: 60
+    expires: 300
   },
 });
 

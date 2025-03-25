@@ -10,8 +10,6 @@ const userSchema = new Schema<User>({
     type: String,
     required: true,
     unique: true,
-    maxLength: 10,
-    minLength: 10,
     trim: true,
   },
   joiningDate: {
@@ -20,4 +18,5 @@ const userSchema = new Schema<User>({
   },
 });
 
-export default mongoose.model<User>("User", userSchema);
+const userModel = mongoose.model<User>("User", userSchema);
+export default userModel;

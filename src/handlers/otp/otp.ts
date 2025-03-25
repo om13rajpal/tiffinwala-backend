@@ -1,5 +1,6 @@
 import { Request, Response } from "express";
 import { otpModel } from "../../models/otp";
+import sendOTP from "../../utils/otp";
 
 export async function otpHandler(req: Request, res: Response) {
   const { phoneNumber } = req.body;
@@ -18,15 +19,17 @@ export async function otpHandler(req: Request, res: Response) {
     otp,
   });
 
-//   const sendResponse = await sendOTP(phoneNumber, otp);
+  const sendResponse: any = await sendOTP(phoneNumber, otp);
 
-//   if (!sendResponse) {
-//     res.status(500).json({
-//       status: false,
-//       message: "Internal Server Error",
-//     });
-//     return;
-//   }
+  console.log(sendResponse);
+
+  if (!sendResponse) {
+    res.status(500).json({
+      status: false,
+      message: "Internal Server Error",
+    });
+    return;
+  }
 
   const saveOtp = await createOtp.save();
 
@@ -38,12 +41,12 @@ export async function otpHandler(req: Request, res: Response) {
     return;
   }
 
-    res.status(200).json({
-        status: true,
-        message: "OTP sent successfully",
-        otp: otp,
-        phoneNumber: phoneNumber
-    });
+  res.status(200).json({
+    status: true,
+    message: "OTP sent successfully",
+    otp: otp,
+    phoneNumber: phoneNumber,
+  });
 }
 
 export async function verifyOtpHandler(req: Request, res: Response) {

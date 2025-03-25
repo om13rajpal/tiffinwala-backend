@@ -1,20 +1,22 @@
-import axios from "axios";
-import { FAST2SMS_API_KEY, OTP_BASE_URL } from "../config/config";
+import twilio from "twilio";
+import {
+  ACCOUNT_SID_TWILIO,
+  AUTH_TOKEN_TWILIO,
+  PHONE_NUMBER_TWILIO,
+} from "../config/config";
 
 export default async function sendOTP(phone: string, otp: string) {
+  const client = twilio(ACCOUNT_SID_TWILIO, AUTH_TOKEN_TWILIO);
+
   try {
-    const response = await axios.get(OTP_BASE_URL!, {
-      params: {
-        route: "otp",
-        variable_values: otp,
-        numbers: phone,
-        authorization: FAST2SMS_API_KEY,
-      },
+    const message = await client.messages.create({
+      to: phone,
+      from: PHONE_NUMBER_TWILIO,
+      body: `Your OTP is ${otp}`,
     });
-    console.log(response.data);
-    return response.data;
+    return message
   } catch (error) {
     console.log(error);
-    return error;
+    return false;
   }
 }
