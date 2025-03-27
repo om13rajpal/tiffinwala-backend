@@ -22,8 +22,6 @@ export async function otpHandler(req: Request, res: Response) {
   const saveOtp = await createOtp.save();
   const sendResponse: any = await sendOTP(phoneNumber, otp);
 
-  console.log(sendResponse);
-
   if (!sendResponse) {
     res.status(500).json({
       status: false,

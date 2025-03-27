@@ -5,6 +5,6 @@ export default function logger(
   res: Response,
   next: NextFunction
 ) {
-  console.log(`Request: ${req.method} ${req.path}`);
+  console.log(`Request: ${req.method} ${req.path} ${req.ip}`);
   next();
 }
