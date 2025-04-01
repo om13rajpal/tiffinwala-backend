@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
 import { otpModel } from "../../models/otp";
-import sendOTP from "../../utils/otp";
+import sendOTP from "../../utils/mail";
 
 export async function otpHandler(req: Request, res: Response) {
   const { phoneNumber } = req.body;
@@ -20,7 +20,7 @@ export async function otpHandler(req: Request, res: Response) {
   });
 
   const saveOtp = await createOtp.save();
-  const sendResponse: any = await sendOTP(phoneNumber, otp);
+  const sendResponse: any = await sendOTP('rajpalom13274@gmail.com', otp);
 
   if (!sendResponse) {
     res.status(500).json({
