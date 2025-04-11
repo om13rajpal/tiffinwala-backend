@@ -1,7 +1,7 @@
 import express from "express";
 import logger from "./middeware/logger";
 import { errorHandler, notFoundHandler } from "./middeware/error";
-import { menuRouter, otpRouter, userRouter } from "./handlers/routes";
+import { menuRouter, orderRouter, otpRouter, userRouter } from "./handlers/routes";
 import connectMongo from "./db/db";
 
 connectMongo();
@@ -14,6 +14,7 @@ app.use(logger);
 app.use("/user", userRouter);
 app.use("/otp", otpRouter);
 app.use("/menu", menuRouter);
+app.use("/order", orderRouter)
 
 app.get("/", (req, res) => {
   res.send("Backend is up and working");
