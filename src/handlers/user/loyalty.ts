@@ -40,7 +40,7 @@ export async function AddPointsHandler(req: Request, res: Response) {
 }
 
 export async function GetPointsHandler(req: Request, res: Response) {
-  const { phone } = req.body;
+  const { phone } = req.params;
 
   const user = await userModel.findOne({ phone });
 

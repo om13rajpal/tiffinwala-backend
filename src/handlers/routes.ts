@@ -14,8 +14,8 @@ userRouter.post("/auth", handleAuth);
 userRouter.post("/signup", handleNewUser);
 userRouter.post("/loyalty", AddPointsHandler);
 
-userRouter.get("/orders", getOrdersHandler);
-userRouter.get("/loyalty", GetPointsHandler);
+userRouter.get("/orders/:phone", getOrdersHandler);
+userRouter.get("/loyalty/:phone", GetPointsHandler);
 
 otpRouter.post("/verify", verifyOtpHandler);
 otpRouter.post("/send", otpHandler);

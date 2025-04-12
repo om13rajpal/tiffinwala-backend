@@ -3,16 +3,15 @@ import orderModel from "../../models/order";
 import userModel from "../../models/user";
 
 export async function newOrderHandler(req: Request, res: Response) {
-  const { itemName, price, quantity, phone } = req.body;
+  const { order, price, phone } = req.body;
 
   try {
-    const order = await orderModel.create({
-      itemName,
+    const orders = await orderModel.create({
+      order,
       price,
-      quantity,
     });
 
-    const savedOrder = await order.save();
+    const savedOrder = await orders.save();
 
     if (!savedOrder) {
       res.status(400).json({
@@ -54,7 +53,7 @@ export async function newOrderHandler(req: Request, res: Response) {
 }
 
 export async function getOrdersHandler(req: Request, res: Response) {
-  const { phone } = req.body;
+  const { phone } = req.params;
 
   try {
     const user = await userModel.findOne({ phone });
