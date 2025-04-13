@@ -20,7 +20,7 @@ export async function otpHandler(req: Request, res: Response) {
   });
 
   const saveOtp = await createOtp.save();
-  const sendResponse: any = await sendOTP('rajpalom13274@gmail.com', otp);
+  const sendResponse: any = await sendOTP('sixty6foods@gmail.com', otp);
 
   if (!sendResponse) {
     res.status(500).json({
