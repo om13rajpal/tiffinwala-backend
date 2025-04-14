@@ -4,6 +4,11 @@ import { menuHandler } from "./menu/menu";
 import { handleAuth, handleNewUser } from "./user/auth";
 import { getOrdersHandler, newOrderHandler } from "./order/order";
 import { AddPointsHandler, GetPointsHandler } from "./user/loyalty";
+import {
+  GetUserHandler,
+  UpdateAddressHandler,
+  UpdateNameHandler,
+} from "./user/user";
 
 export const userRouter = Router();
 export const otpRouter = Router();
@@ -16,6 +21,10 @@ userRouter.post("/loyalty", AddPointsHandler);
 
 userRouter.get("/orders/:phone", getOrdersHandler);
 userRouter.get("/loyalty/:phone", GetPointsHandler);
+userRouter.get("/:phone", GetUserHandler);
+
+userRouter.put("/name/:phone", UpdateNameHandler);
+userRouter.put("/address/:phone", UpdateAddressHandler);
 
 otpRouter.post("/verify", verifyOtpHandler);
 otpRouter.post("/send", otpHandler);

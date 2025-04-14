@@ -7,6 +7,7 @@ export interface SignupRequest {
   firstName: string;
   lastName: string;
   phoneNumber: string;
+  address: string
 }
 
 export async function handleAuth(req: Request, res: Response) {
@@ -36,9 +37,9 @@ export async function handleAuth(req: Request, res: Response) {
 }
 
 export async function handleNewUser(req: Request, res: Response) {
-  const { firstName, lastName, phoneNumber } = req.body;
+  const { firstName, lastName, phoneNumber, address } = req.body;
 
-  const response: any = await handleSignup(phoneNumber, firstName, lastName);
+  const response: any = await handleSignup(phoneNumber, firstName, lastName, address);
 
   if (!response.status) {
     res.status(400).json(response);

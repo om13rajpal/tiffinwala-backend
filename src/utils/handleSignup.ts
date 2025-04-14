@@ -8,12 +8,14 @@ import axios from "axios";
 export default async function handleSignup(
   phoneNumber: string,
   firstName: string,
-  lastName: string
+  lastName: string,
+  address: string
 ) {
   const signupBody: SignupRequest = {
     firstName,
     lastName,
     phoneNumber,
+    address,
   };
 
   const isValidBody = validateSignup(signupBody);
@@ -39,6 +41,9 @@ export default async function handleSignup(
     const data = response.data;
 
     const user = new userModel({
+      firstName: firstName,
+      lastName: lastName,
+      address: address,
       phone: phoneNumber,
       joiningDate: new Date(),
     });
@@ -51,7 +56,7 @@ export default async function handleSignup(
       status: true,
       message: "User created successfully",
       data: data,
-      token: loginToken
+      token: loginToken,
     };
   } catch (error) {
     console.log(error);
