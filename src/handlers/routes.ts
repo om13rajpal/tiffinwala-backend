@@ -9,6 +9,7 @@ import {
   UpdateAddressHandler,
   UpdateNameHandler,
 } from "./user/user";
+import { IsAuthenticated } from "../middeware/authenticated";
 
 export const userRouter = Router();
 export const otpRouter = Router();
@@ -19,12 +20,12 @@ userRouter.post("/auth", handleAuth);
 userRouter.post("/signup", handleNewUser);
 userRouter.post("/loyalty", AddPointsHandler);
 
-userRouter.get("/orders/:phone", getOrdersHandler);
-userRouter.get("/loyalty/:phone", GetPointsHandler);
-userRouter.get("/:phone", GetUserHandler);
+userRouter.get("/orders/:phone", IsAuthenticated, getOrdersHandler);
+userRouter.get("/loyalty/:phone", IsAuthenticated, GetPointsHandler);
+userRouter.get("/:phone", IsAuthenticated, GetUserHandler);
 
-userRouter.put("/name/:phone", UpdateNameHandler);
-userRouter.put("/address/:phone", UpdateAddressHandler);
+userRouter.put("/name/:phone", IsAuthenticated, UpdateNameHandler);
+userRouter.put("/address/:phone", IsAuthenticated, UpdateAddressHandler);
 
 otpRouter.post("/verify", verifyOtpHandler);
 otpRouter.post("/send", otpHandler);

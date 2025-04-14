@@ -33,3 +33,12 @@ export function generateLoginToken(phoneNumber: string) {
     expiresIn: "24h",
   });
 }
+
+export function verifyToken(token: string) {
+  const decoded = jwt.verify(token, LOGIN_JWT_SECRET!);
+  if (decoded) {
+    return true;
+  }
+
+  return false;
+}
