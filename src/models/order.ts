@@ -1,4 +1,5 @@
 import mongoose, { Document, Schema } from "mongoose";
+import { string } from "zod";
 
 interface OrderItem extends Document {
   itemName: string;
@@ -10,6 +11,8 @@ interface Order extends Document {
   order: OrderItem[];
   orderDate: Date;
   price: number;
+  paymentStatus: string;
+  paymentMethod: string;
 }
 
 const orderItemSchema = new Schema<OrderItem>(
@@ -47,6 +50,16 @@ const orderSchema = new Schema<Order>({
     type: Date,
     default: Date.now(),
   },
+  paymentMethod: {
+    type: String,
+    required: true,
+  },
+  paymentStatus: {
+    type: String,
+    required: true,
+    enum: ["pending", "completed", "failed"],
+    default: "pending",
+  }
 });
 
 const orderModel = mongoose.model<Order>("Order", orderSchema);
