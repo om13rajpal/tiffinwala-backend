@@ -17,6 +17,7 @@ app.use("/user", userRouter);
 app.use("/otp", otpRouter);
 app.use("/menu", menuRouter);
 app.use("/order", orderRouter)
+app.use("/sale", orderRouter);
 
 app.get("/", (req, res) => {
   res.send("Backend is up and working");

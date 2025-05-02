@@ -10,11 +10,13 @@ import {
   UpdateNameHandler,
 } from "./user/user";
 import { IsAuthenticated } from "../middeware/authenticated";
+import { SaveSaleHandler } from "./sale/sale";
 
 export const userRouter = Router();
 export const otpRouter = Router();
 export const menuRouter = Router();
 export const orderRouter = Router();
+export const saleRouter = Router();
 
 userRouter.post("/auth", handleAuth);
 userRouter.post("/signup", handleNewUser);
@@ -32,4 +34,6 @@ otpRouter.post("/send", otpHandler);
 
 menuRouter.get("/", menuHandler);
 
-orderRouter.post("/new", newOrderHandler);
+orderRouter.post("/new", IsAuthenticated, newOrderHandler);
+
+saleRouter.post("/new", IsAuthenticated, SaveSaleHandler);
