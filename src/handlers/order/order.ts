@@ -3,7 +3,7 @@ import orderModel from "../../models/order";
 import userModel from "../../models/user";
 
 export async function newOrderHandler(req: Request, res: Response) {
-  const { order, price, phone, paymentMethod, paymentStatus } = req.body;
+  const { order, price, phone, paymentMethod, paymentStatus, orderMode } = req.body;
 
   try {
     const orders = await orderModel.create({
@@ -11,6 +11,7 @@ export async function newOrderHandler(req: Request, res: Response) {
       price,
       paymentMethod,
       paymentStatus,
+      orderMode: orderMode
     });
 
     const savedOrder = await orders.save();

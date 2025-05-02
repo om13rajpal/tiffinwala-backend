@@ -3,11 +3,13 @@ import logger from "./middeware/logger";
 import { errorHandler, notFoundHandler } from "./middeware/error";
 import { menuRouter, orderRouter, otpRouter, userRouter } from "./handlers/routes";
 import connectMongo from "./db/db";
+import cors from "cors";
 
 connectMongo();
 
 const app = express();
 
+app.use(cors());
 app.use(express.json());
 app.use(logger);
 
