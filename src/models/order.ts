@@ -1,8 +1,9 @@
 import mongoose, { Document, Schema } from "mongoose";
 
 interface OrderItem extends Document {
-  itemName: string;
-  price: number;
+  shortName: string;
+  skuCode: string;
+  unitPrice: number;
   quantity: number;
 }
 
@@ -13,15 +14,20 @@ interface Order extends Document {
   paymentStatus: string;
   paymentMethod: string;
   orderMode: string;
+  discount?: number;
 }
 
 const orderItemSchema = new Schema<OrderItem>(
   {
-    itemName: {
+    shortName: {
       type: String,
       required: true,
     },
-    price: {
+    skuCode: {
+      type: String,
+      required: true,
+    },
+    unitPrice: {
       type: Number,
       required: true,
     },
@@ -64,6 +70,10 @@ const orderSchema = new Schema<Order>({
     type: String,
     required: true,
     enum: ["delivery", "pickup"],
+  },
+  discount: {
+    type: Number,
+    default: 0,
   }
 });
 
