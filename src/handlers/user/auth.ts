@@ -17,8 +17,6 @@ export async function handleAuth(req: Request, res: Response) {
     phone: phoneNumber,
   });
 
-  console.log(user);
-
   if (!user) {
     res.status(400).json({
       status: false,

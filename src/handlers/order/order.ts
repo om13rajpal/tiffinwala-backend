@@ -6,7 +6,15 @@ import { generateToken } from "../../utils/generateToken";
 import axios from "axios";
 
 export async function newOrderHandler(req: Request, res: Response) {
-  const { order, price, phone, paymentMethod, paymentStatus, orderMode } = req.body;
+  const {
+    order,
+    price,
+    phone,
+    paymentMethod,
+    paymentStatus,
+    orderMode,
+    discount,
+  } = req.body;
 
   try {
     const orders = await orderModel.create({
@@ -14,7 +22,8 @@ export async function newOrderHandler(req: Request, res: Response) {
       price,
       paymentMethod,
       paymentStatus,
-      orderMode: orderMode
+      orderMode: orderMode,
+      discount,
     });
 
     const savedOrder = await orders.save();
@@ -58,7 +67,7 @@ export async function newOrderHandler(req: Request, res: Response) {
     //       "Content-Type": "application/json",
     //     },
     //   });
-  
+
     //   if (response.status === 201) {
     //     res.status(201).json({
     //       status: true,
