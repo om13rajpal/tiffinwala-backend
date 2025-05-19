@@ -10,12 +10,18 @@ import {
   UpdateNameHandler,
 } from "./user/user";
 import { IsAuthenticated } from "../middeware/authenticated";
+import {
+  addCouponHandler,
+  getCouponsHandler,
+  verifyCouponHandler,
+} from "./coupon/coupon";
 
 export const userRouter = Router();
 export const otpRouter = Router();
 export const menuRouter = Router();
 export const orderRouter = Router();
 export const saleRouter = Router();
+export const couponRouter = Router();
 
 userRouter.post("/auth", handleAuth);
 userRouter.post("/signup", handleNewUser);
@@ -34,3 +40,7 @@ otpRouter.post("/send", otpHandler);
 menuRouter.get("/", menuHandler);
 
 orderRouter.post("/new", IsAuthenticated, newOrderHandler);
+
+couponRouter.get("/", getCouponsHandler);
+couponRouter.post("/", addCouponHandler);
+couponRouter.post("/verify", verifyCouponHandler);

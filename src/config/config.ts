@@ -7,10 +7,7 @@ export const API_KEY = process.env.API_KEY;
 export const SECRET_KEY = process.env.SECRET_KEY;
 export const MONGO_URI = process.env.MONGO_URI;
 
-export const ACCOUNT_SID_TWILIO = process.env.ACCOUNT_SID_TWILIO;
-export const AUTH_TOKEN_TWILIO = process.env.AUTH_TOKEN_TWILIO;
-export const PHONE_NUMBER_TWILIO = process.env.PHONE_NUMBER_TWILIO;
-
+export const FAST2SMS_API_KEY = process.env.FAST2SMS_API_KEY;
 
 export const BASE_URL = process.env.BASE_URI;
 
