@@ -7,7 +7,7 @@ export const API_KEY = process.env.API_KEY;
 export const SECRET_KEY = process.env.SECRET_KEY;
 export const MONGO_URI = process.env.MONGO_URI;
 
-export const FAST2SMS_API_KEY = process.env.FAST2SMS_API_KEY;
+export const AUTH_KEY = process.env.AUTH_KEY;
 
 export const BASE_URL = process.env.BASE_URI;
 
@@ -19,5 +19,3 @@ export const CHANNEL = process.env.CHANNEL;
 
 export const EMAIL = process.env.EMAIL;
 export const EMAIL_PASSWORD = process.env.EMAIL_PASSWORD;
-
-export const OTP_EMAIL = process.env.OTP_EMAIL;

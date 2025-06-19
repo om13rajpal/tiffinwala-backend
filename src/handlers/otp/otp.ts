@@ -1,7 +1,6 @@
 import { Request, Response } from "express";
 import { otpModel } from "../../models/otp";
-import sendOTP from "../../utils/mail";
-import { OTP_EMAIL } from "../../config/config";
+import sendOTP from "../../utils/otp";
 
 export async function otpHandler(req: Request, res: Response) {
   const { phoneNumber } = req.body;
@@ -15,23 +14,22 @@ export async function otpHandler(req: Request, res: Response) {
 
   const otp = Math.floor(100000 + Math.random() * 900000).toString();
 
-  const createOtp = new otpModel({
+  const createOtp = await new otpModel({
     phone: phoneNumber,
     otp,
-  });
+  }).save();
 
-  const saveOtp = await createOtp.save();
-  const sendResponse: any = await sendOTP(OTP_EMAIL!, otp);
-
-  if (!sendResponse) {
+  if (!createOtp) {
     res.status(500).json({
       status: false,
       message: "Internal Server Error",
     });
     return;
   }
+  const sendResponse: any = await sendOTP(phoneNumber, otp);
+  console.log(sendResponse)
 
-  if (!saveOtp) {
+  if (!sendResponse) {
     res.status(500).json({
       status: false,
       message: "Internal Server Error",

@@ -9,7 +9,7 @@ const transporter = nodemailer.createTransport({
   },
   tls: {
     rejectUnauthorized: false,
-  }
+  },
 });
 
 export default async function sendOTP(phone: string, otp: string) {
