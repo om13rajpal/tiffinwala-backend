@@ -6,6 +6,7 @@ import {
   menuRouter,
   orderRouter,
   otpRouter,
+  transactionRouter,
   userRouter,
 } from "./handlers/routes";
 import ExpressMongoSanitize from "express-mongo-sanitize";
@@ -27,6 +28,7 @@ app.use("/otp", limiter, otpRouter);
 app.use("/menu", menuRouter);
 app.use("/order", limiter, orderRouter);
 app.use("/coupon", limiter, couponRouter);
+app.use("/transaction", limiter, transactionRouter);
 
 app.get("/", (req, res) => {
   res.send("Backend is up and working");

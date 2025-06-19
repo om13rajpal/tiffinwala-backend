@@ -15,6 +15,11 @@ import {
   getCouponsHandler,
   verifyCouponHandler,
 } from "./coupon/coupon";
+import {
+  getReceivedTransactionHandler,
+  getSentTransactionHandler,
+  saveTransactionHandler,
+} from "./transaction/transaction";
 
 export const userRouter = Router();
 export const otpRouter = Router();
@@ -22,6 +27,7 @@ export const menuRouter = Router();
 export const orderRouter = Router();
 export const saleRouter = Router();
 export const couponRouter = Router();
+export const transactionRouter = Router();
 
 userRouter.post("/auth", handleAuth);
 userRouter.post("/signup", handleNewUser);
@@ -44,3 +50,7 @@ orderRouter.post("/new", IsAuthenticated, newOrderHandler);
 couponRouter.get("/", getCouponsHandler);
 couponRouter.post("/", addCouponHandler);
 couponRouter.post("/verify", verifyCouponHandler);
+
+transactionRouter.post("/", saveTransactionHandler);
+transactionRouter.get("/sent/:id", getSentTransactionHandler);
+transactionRouter.get("/received/:id", getReceivedTransactionHandler);

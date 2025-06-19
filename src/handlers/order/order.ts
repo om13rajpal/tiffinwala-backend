@@ -35,12 +35,19 @@ export async function newOrderHandler(req: Request, res: Response) {
       });
       return;
     }
+    var loyaltyPoints = 0;
+    if (price - discount >= 299) {
+      loyaltyPoints = 10;
+    }
 
     const user = await userModel.findOneAndUpdate(
       { phone },
       {
         $push: {
           orders: savedOrder._id,
+        },
+        $inc: {
+          loyaltyPoints: loyaltyPoints,
         },
       }
     );

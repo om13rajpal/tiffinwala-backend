@@ -7,6 +7,9 @@ interface User extends Document {
   phone: string;
   joiningDate: Date;
   loyaltyPoints: number;
+  seller: boolean;
+  appliedForSeller: boolean;
+  qr: string;
   orders: Schema.Types.ObjectId[];
 }
 
@@ -39,6 +42,18 @@ const userSchema = new Schema<User>({
   loyaltyPoints: {
     type: Number,
     default: 0,
+  },
+  seller: {
+    type: Boolean,
+    default: false,
+  },
+  appliedForSeller: {
+    type: Boolean,
+    default: false,
+  },
+  qr: {
+    type: String,
+    default: "",
   },
   orders: [
     {
