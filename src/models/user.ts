@@ -10,6 +10,7 @@ interface User extends Document {
   seller: boolean;
   appliedForSeller: boolean;
   qr: string;
+  balance: number;
   orders: Schema.Types.ObjectId[];
 }
 
@@ -18,6 +19,11 @@ const userSchema = new Schema<User>({
     type: String,
     required: true,
     trim: true,
+  },
+  balance: {
+    type: Number,
+    min: 0,
+    default: 0,
   },
   lastName: {
     type: String,
