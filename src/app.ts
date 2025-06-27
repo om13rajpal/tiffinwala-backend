@@ -2,6 +2,7 @@ import express from "express";
 import logger from "./middeware/logger";
 import { errorHandler, notFoundHandler } from "./middeware/error";
 import {
+  bannerRouter,
   couponRouter,
   menuRouter,
   orderRouter,
@@ -29,6 +30,9 @@ app.use("/menu", menuRouter);
 app.use("/order", limiter, orderRouter);
 app.use("/coupon", limiter, couponRouter);
 app.use("/transaction", limiter, transactionRouter);
+app.use("/banner", bannerRouter);
+
+app.use("/uploads", express.static("uploads"));
 
 app.get("/", (req, res) => {
   res.send("Backend is up and working");

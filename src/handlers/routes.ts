@@ -20,6 +20,25 @@ import {
   getSentTransactionHandler,
   saveTransactionHandler,
 } from "./transaction/transaction";
+import multer from "multer";
+import {
+  deleteBannerHandler,
+  getAllBanners,
+  uploadBannerHandler,
+} from "./banner/banner";
+
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, "uploads");
+  },
+  filename: (req, file, cb) => {
+    cb(null, Date.now() + "-" + file.originalname);
+  },
+});
+
+const upload = multer({
+  storage: storage,
+});
 
 export const userRouter = Router();
 export const otpRouter = Router();
@@ -27,6 +46,7 @@ export const menuRouter = Router();
 export const orderRouter = Router();
 export const saleRouter = Router();
 export const couponRouter = Router();
+export const bannerRouter = Router();
 export const transactionRouter = Router();
 
 userRouter.post("/auth", handleAuth);
@@ -54,3 +74,7 @@ couponRouter.post("/verify", verifyCouponHandler);
 transactionRouter.post("/", saveTransactionHandler);
 transactionRouter.get("/sent/:id", getSentTransactionHandler);
 transactionRouter.get("/received/:id", getReceivedTransactionHandler);
+
+bannerRouter.post("/upload", upload.single("banner"), uploadBannerHandler);
+bannerRouter.get("/", getAllBanners);
+bannerRouter.delete("/:id", deleteBannerHandler);
