@@ -28,6 +28,7 @@ import {
   uploadBannerHandler,
 } from "./banner/banner";
 import { updateStoreHandler } from "./store/store";
+import { sendNotificationHandler } from "./notifications/notifications";
 
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
@@ -51,6 +52,9 @@ export const couponRouter = Router();
 export const bannerRouter = Router();
 export const transactionRouter = Router();
 export const storeRouter = Router();
+export const notificationRouter = Router();
+
+notificationRouter.post("/send", sendNotificationHandler);
 
 storeRouter.put("/", updateStoreHandler);
 
@@ -75,7 +79,7 @@ orderRouter.post("/new", IsAuthenticated, newOrderHandler);
 couponRouter.get("/", getCouponsHandler);
 couponRouter.post("/", addCouponHandler);
 couponRouter.post("/verify", verifyCouponHandler);
-couponRouter.delete("/:id", deleteCouponHander)
+couponRouter.delete("/:id", deleteCouponHander);
 
 transactionRouter.post("/", saveTransactionHandler);
 transactionRouter.get("/sent/:id", getSentTransactionHandler);

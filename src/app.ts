@@ -5,6 +5,7 @@ import {
   bannerRouter,
   couponRouter,
   menuRouter,
+  notificationRouter,
   orderRouter,
   otpRouter,
   storeRouter,
@@ -33,6 +34,7 @@ app.use("/coupon", limiter, couponRouter);
 app.use("/transaction", limiter, transactionRouter);
 app.use("/banner", bannerRouter);
 app.use("/store", storeRouter)
+app.use("/notification", notificationRouter)
 
 app.use("/uploads", express.static("uploads"));
 
