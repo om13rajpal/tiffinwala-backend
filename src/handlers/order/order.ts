@@ -1,9 +1,6 @@
 import { Request, Response } from "express";
 import orderModel from "../../models/order";
 import userModel from "../../models/user";
-import { API_KEY, BASE_URL, BRANCH, CHANNEL } from "../../config/config";
-import { generateToken } from "../../utils/generateToken";
-import axios from "axios";
 
 export async function newOrderHandler(req: Request, res: Response) {
   const {

@@ -7,6 +7,7 @@ import {
   menuRouter,
   orderRouter,
   otpRouter,
+  storeRouter,
   transactionRouter,
   userRouter,
 } from "./handlers/routes";
@@ -31,6 +32,7 @@ app.use("/order", limiter, orderRouter);
 app.use("/coupon", limiter, couponRouter);
 app.use("/transaction", limiter, transactionRouter);
 app.use("/banner", bannerRouter);
+app.use("/store", storeRouter)
 
 app.use("/uploads", express.static("uploads"));
 

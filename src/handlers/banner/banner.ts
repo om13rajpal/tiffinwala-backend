@@ -25,10 +25,10 @@ export async function uploadBannerHandler(req: Request, res: Response) {
 
 export async function getAllBanners(req: Request, res: Response) {
   try {
-    const banners = bannerModel.find({});
+    const banners = await bannerModel.find({});
     res.json({
       status: true,
-      banners,
+      data: banners,
     });
   } catch (error) {
     console.error("Error getting banners", error);
@@ -43,7 +43,7 @@ export async function deleteBannerHandler(req: Request, res: Response) {
   const id = req.params.id;
 
   try {
-    const banner = bannerModel.findByIdAndDelete(id);
+    const banner = await bannerModel.findByIdAndDelete(id);
     if (!banner) {
       res.status(404).json({
         status: false,

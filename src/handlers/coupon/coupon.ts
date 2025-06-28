@@ -2,12 +2,13 @@ import { Request, Response } from "express";
 import couponModel from "../../models/coupon";
 
 export async function addCouponHandler(req: Request, res: Response) {
-  const { code, discount, expiryDate } = req.body;
+  const { code, discount, expiryDate, minOrder } = req.body;
 
   const coupon = await new couponModel({
     code,
     discount,
     expiryDate,
+    minOrder
   }).save();
 
   if (!coupon) {
@@ -61,4 +62,30 @@ export async function verifyCouponHandler(req: Request, res: Response) {
     message: "Coupon verified successfully",
     data: coupon,
   });
+}
+
+export async function deleteCouponHander(req: Request, res: Response) {
+  const id = req.params.id
+
+  try {
+    const coupon = await couponModel.findByIdAndDelete(id);
+    if(!coupon){
+      res.status(404).json({
+        status: false,
+        message: "coupon not found"
+      })
+      return;
+    }
+
+    res.json({
+      status: true,
+      message: "coupon deleted successfully"
+    })
+  } catch (error) {
+    console.error("error deleting coupon");
+    res.status(500).json({
+      status: false,
+      message: "internal server error"
+    })
+  }
 }

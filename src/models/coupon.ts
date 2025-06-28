@@ -4,6 +4,7 @@ interface Coupon extends Document {
   code: string;
   discount: number;
   expiryDate: Date;
+  minOrder: number;
 }
 
 const couponSchema = new Schema<Coupon>({
@@ -11,6 +12,10 @@ const couponSchema = new Schema<Coupon>({
     type: String,
     required: true,
     unique: true,
+  },
+  minOrder: {
+    type: Number,
+    required: true,
   },
   discount: {
     type: Number,
