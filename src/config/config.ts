@@ -19,3 +19,5 @@ export const CHANNEL = process.env.CHANNEL;
 
 export const EMAIL = process.env.EMAIL;
 export const EMAIL_PASSWORD = process.env.EMAIL_PASSWORD;
+
+export const FIREBASE_CONFIG = process.env.FIREBASE_CONFIG
