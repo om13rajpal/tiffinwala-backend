@@ -1,10 +1,12 @@
-import { Document, model, Schema } from "mongoose";
+import mongoose, { Document, model, Schema } from "mongoose";
+import { any } from "zod";
 
 interface Coupon extends Document {
   code: string;
-  discount: number;
+  discount: number | string;
   expiryDate: Date;
   minOrder: number;
+  maxValue?: number;
 }
 
 const couponSchema = new Schema<Coupon>({
@@ -18,12 +20,20 @@ const couponSchema = new Schema<Coupon>({
     required: true,
   },
   discount: {
-    type: Number,
+    type: mongoose.Schema.Types.Mixed,
+    validate: {
+      validator: (v: unknown) => typeof v === "string" || typeof v === "number",
+      message: "Value must be a string or number",
+    },
     required: true,
   },
   expiryDate: {
     type: Date,
     required: true,
+  },
+  maxValue: {
+    type: Number,
+    default: 300,
   },
 });
 

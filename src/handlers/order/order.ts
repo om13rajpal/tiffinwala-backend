@@ -1,6 +1,7 @@
 import { Request, Response } from "express";
 import orderModel from "../../models/order";
 import userModel from "../../models/user";
+import { getLoyaltyPoints } from "../../utils/points";
 
 export async function newOrderHandler(req: Request, res: Response) {
   const {
@@ -24,6 +25,9 @@ export async function newOrderHandler(req: Request, res: Response) {
     });
 
     const savedOrder = await orders.save();
+    console.log(price)
+    console.log(discount)
+
 
     if (!savedOrder) {
       res.status(400).json({
@@ -32,10 +36,8 @@ export async function newOrderHandler(req: Request, res: Response) {
       });
       return;
     }
-    var loyaltyPoints = 0;
-    if (price - discount >= 299) {
-      loyaltyPoints = 10;
-    }
+
+    const loyaltyPoints = await getLoyaltyPoints(price - discount);
 
     const user = await userModel.findOneAndUpdate(
       { phone },

@@ -2,13 +2,14 @@ import { Request, Response } from "express";
 import couponModel from "../../models/coupon";
 
 export async function addCouponHandler(req: Request, res: Response) {
-  const { code, discount, expiryDate, minOrder } = req.body;
+  const { code, discount, expiryDate, minOrder, maxValue } = req.body;
 
   const coupon = await new couponModel({
     code,
     discount,
     expiryDate,
-    minOrder
+    minOrder,
+    maxValue,
   }).save();
 
   if (!coupon) {
@@ -37,7 +38,7 @@ export async function getCouponsHandler(req: Request, res: Response) {
 }
 
 export async function verifyCouponHandler(req: Request, res: Response) {
-  const { code } = req.body;
+  const { code, currentCartPrice } = req.body;
   const coupon = await couponModel.findOne({ code });
 
   if (!coupon) {
@@ -49,10 +50,10 @@ export async function verifyCouponHandler(req: Request, res: Response) {
   }
 
   const currentDate = new Date();
-  if (coupon.expiryDate < currentDate) {
+  if (coupon.expiryDate < currentDate && currentCartPrice > coupon.minOrder) {
     res.status(400).json({
       status: false,
-      message: "Coupon expired",
+      message: "Cannot apply this coupon",
     });
     return;
   }
@@ -65,27 +66,27 @@ export async function verifyCouponHandler(req: Request, res: Response) {
 }
 
 export async function deleteCouponHander(req: Request, res: Response) {
-  const id = req.params.id
+  const id = req.params.id;
 
   try {
     const coupon = await couponModel.findByIdAndDelete(id);
-    if(!coupon){
+    if (!coupon) {
       res.status(404).json({
         status: false,
-        message: "coupon not found"
-      })
+        message: "coupon not found",
+      });
       return;
     }
 
     res.json({
       status: true,
-      message: "coupon deleted successfully"
-    })
+      message: "coupon deleted successfully",
+    });
   } catch (error) {
     console.error("error deleting coupon");
     res.status(500).json({
       status: false,
-      message: "internal server error"
-    })
+      message: "internal server error",
+    });
   }
 }

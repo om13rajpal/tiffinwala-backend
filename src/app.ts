@@ -8,6 +8,7 @@ import {
   notificationRouter,
   orderRouter,
   otpRouter,
+  pointsRouter,
   storeRouter,
   transactionRouter,
   userRouter,
@@ -35,6 +36,7 @@ app.use("/transaction", limiter, transactionRouter);
 app.use("/banner", bannerRouter);
 app.use("/store", storeRouter)
 app.use("/notification", notificationRouter)
+app.use("/points", pointsRouter)
 
 app.use("/uploads", express.static("uploads"));
 

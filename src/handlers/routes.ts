@@ -29,6 +29,11 @@ import {
 } from "./banner/banner";
 import { updateStoreHandler } from "./store/store";
 import { sendNotificationHandler } from "./notifications/notifications";
+import {
+  deletePointsHandler,
+  getPointsHandler,
+  savePointsHandler,
+} from "./points/points";
 
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
@@ -53,6 +58,11 @@ export const bannerRouter = Router();
 export const transactionRouter = Router();
 export const storeRouter = Router();
 export const notificationRouter = Router();
+export const pointsRouter = Router();
+
+pointsRouter.post("/", savePointsHandler);
+pointsRouter.get("/", getPointsHandler);
+pointsRouter.delete("/:id", deletePointsHandler);
 
 notificationRouter.post("/send", sendNotificationHandler);
 
