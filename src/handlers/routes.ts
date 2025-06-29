@@ -29,7 +29,7 @@ import {
   getAllBanners,
   uploadBannerHandler,
 } from "./banner/banner";
-import { updateStoreHandler } from "./store/store";
+import { getStoreStatus, updateStoreHandler } from "./store/store";
 import { sendNotificationHandler } from "./notifications/notifications";
 import {
   deletePointsHandler,
@@ -81,6 +81,7 @@ pointsRouter.delete("/:id", deletePointsHandler);
 notificationRouter.post("/send", sendNotificationHandler);
 
 storeRouter.put("/", updateStoreHandler);
+storeRouter.get("/status", getStoreStatus);
 
 userRouter.post("/auth", handleAuth);
 userRouter.post("/signup", handleNewUser);
