@@ -4,6 +4,8 @@ import { menuHandler } from "./menu/menu";
 import { handleAuth, handleNewUser } from "./user/auth";
 import { getOrdersHandler, newOrderHandler } from "./order/order";
 import { AddPointsHandler, GetPointsHandler } from "./user/loyalty";
+import { v2 as cloudinary } from "cloudinary";
+import { CloudinaryStorage } from "multer-storage-cloudinary";
 import {
   GetUserHandler,
   UpdateAddressHandler,
@@ -34,13 +36,25 @@ import {
   getPointsHandler,
   savePointsHandler,
 } from "./points/points";
+import {
+  CLOUDINARY_API_KEY,
+  CLOUDINARY_API_SECRET,
+  CLOUDINARY_CLOUD_NAME,
+} from "../config/config";
 
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, "uploads");
-  },
-  filename: (req, file, cb) => {
-    cb(null, Date.now() + "-" + file.originalname);
+cloudinary.config({
+  cloud_name: CLOUDINARY_CLOUD_NAME,
+  api_key: CLOUDINARY_API_KEY,
+  api_secret: CLOUDINARY_API_SECRET,
+});
+
+const storage = new CloudinaryStorage({
+  cloudinary,
+  params: async (req, file) => {
+    return {
+      folder: "banners",
+      allowed_formats: ["jpg", "jpeg", "png", "webp"],
+    };
   },
 });
 
@@ -95,6 +109,6 @@ transactionRouter.post("/", saveTransactionHandler);
 transactionRouter.get("/sent/:id", getSentTransactionHandler);
 transactionRouter.get("/received/:id", getReceivedTransactionHandler);
 
-bannerRouter.post("/upload", upload.single("banner"), uploadBannerHandler);
+bannerRouter.post("/upload", upload.single("file"), uploadBannerHandler);
 bannerRouter.get("/", getAllBanners);
 bannerRouter.delete("/:id", deleteBannerHandler);

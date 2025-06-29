@@ -2,21 +2,28 @@ import { Request, Response } from "express";
 import bannerModel from "../../models/banners";
 
 export async function uploadBannerHandler(req: Request, res: Response) {
-  const fileLink = `${req.protocol}://${req.get("host")}/uploads/${
-    req.file?.filename
-  }`;
+  const fileUrl = (req.file as any)?.path;
+
+  if (!fileUrl) {
+    res.status(400).json({
+      status: false,
+      message: "No file uploaded",
+    });
+    return
+  }
 
   const banner = await new bannerModel({
-    url: fileLink,
+    url: fileUrl,
   }).save();
 
   if (!banner) {
-    res.status(401).json({
+    res.status(500).json({
       status: false,
       message: "error saving banner",
     });
-    return;
+    return
   }
+
   res.json({
     status: true,
     data: banner,
