@@ -77,7 +77,7 @@ export async function UpdateAddressHandler(req: Request, res: Response) {
       { phone },
       {
         $push: {
-          address: { address },
+          address: address,
         },
       },
       { new: true }
@@ -88,7 +88,7 @@ export async function UpdateAddressHandler(req: Request, res: Response) {
         status: false,
         message: "User not found",
       });
-      return
+      return;
     }
 
     res.json({
@@ -98,7 +98,7 @@ export async function UpdateAddressHandler(req: Request, res: Response) {
         addresses: updatedUser.address,
       },
     });
-    return
+    return;
   } catch (error) {
     console.error(error);
     res.status(500).json({
@@ -106,6 +106,6 @@ export async function UpdateAddressHandler(req: Request, res: Response) {
       message: "Internal Server Error",
       error: error instanceof Error ? error.message : String(error),
     });
-    return
+    return;
   }
 }
