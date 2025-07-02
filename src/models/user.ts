@@ -1,21 +1,9 @@
 import mongoose, { Document, Schema } from "mongoose";
 
-interface Iaddress {
-  address: string;
-}
-const addressSchema = new Schema<Iaddress>(
-  {
-    address: {
-      type: String,
-    },
-  },
-  { id: false }
-);
-
 interface User extends Document {
   firstName: string;
   lastName: string;
-  address: Iaddress[];
+  address: string[];
   phone: string;
   joiningDate: Date;
   loyaltyPoints: number;
@@ -42,11 +30,11 @@ const userSchema = new Schema<User>({
     required: true,
     trim: true,
   },
-  address: {
-    type: [addressSchema],
-    required: true,
-    trim: true,
-  },
+  address: [
+    {
+      type: String,
+    },
+  ],
   phone: {
     type: String,
     required: true,
