@@ -1,18 +1,21 @@
 import mongoose, { Document, Schema } from "mongoose";
-import { string } from "zod";
 
-const addressSchema = new Schema<address>({
-  address: string,
-});
-
-interface address extends Document {
+interface Iaddress {
   address: string;
 }
+const addressSchema = new Schema<Iaddress>(
+  {
+    address: {
+      type: String,
+    },
+  },
+  { id: false }
+);
 
 interface User extends Document {
   firstName: string;
   lastName: string;
-  address: address[];
+  address: Iaddress[];
   phone: string;
   joiningDate: Date;
   loyaltyPoints: number;
