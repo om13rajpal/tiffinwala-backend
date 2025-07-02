@@ -3,17 +3,19 @@ import bannerModel from "../../models/banners";
 
 export async function uploadBannerHandler(req: Request, res: Response) {
   const fileUrl = (req.file as any)?.path;
+  const { redirect } = req.body;
 
   if (!fileUrl) {
     res.status(400).json({
       status: false,
       message: "No file uploaded",
     });
-    return
+    return;
   }
 
   const banner = await new bannerModel({
     url: fileUrl,
+    redirect
   }).save();
 
   if (!banner) {
@@ -21,7 +23,7 @@ export async function uploadBannerHandler(req: Request, res: Response) {
       status: false,
       message: "error saving banner",
     });
-    return
+    return;
   }
 
   res.json({

@@ -5,6 +5,9 @@ const bannerSchema = new Schema({
     type: String,
     required: true,
   },
+  redirect: {
+    type: String,
+  },
   created_at: {
     type: Date,
     default: Date.now(),
