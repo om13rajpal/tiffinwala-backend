@@ -35,8 +35,7 @@ export async function UpdateNameHandler(req: Request, res: Response) {
       $set: {
         firstName,
         lastName,
-      }
-      
+      },
     },
     {
       new: true,
@@ -62,34 +61,47 @@ export async function UpdateNameHandler(req: Request, res: Response) {
 }
 
 export async function UpdateAddressHandler(req: Request, res: Response) {
-  const { phone } = req.params;
-  const { address } = req.body;
+  try {
+    const { phone } = req.params;
+    const { address } = req.body;
 
-  const updatedUser = await userModel.findOneAndUpdate(
-    {
-      phone,
-    },
-    {
-      $set: { address },
-    },
-    {
-      new: true,
+    if (!phone || !address) {
+      return res.status(400).json({
+        status: false,
+        message: "Missing phone or address in request body",
+      });
     }
-  );
 
-  if (!updatedUser) {
-    res.status(400).json({
-      status: false,
-      message: "User not found",
+    const updatedUser = await userModel.findOneAndUpdate(
+      { phone },
+      {
+        $push: {
+          address: { address },
+        },
+      },
+      { new: true }
+    );
+
+    if (!updatedUser) {
+      return res.status(404).json({
+        status: false,
+        message: "User not found",
+      });
+    }
+
+    return res.json({
+      status: true,
+      message: "Address added successfully",
+      data: {
+        addresses: updatedUser.address,
+      },
     });
-    return;
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({
+      status: false,
+      message: "Internal Server Error",
+      error: error instanceof Error ? error.message : String(error),
+    });
   }
-
-  res.json({
-    status: true,
-    message: "User address updated successfully",
-    data: {
-      address: updatedUser.address,
-    },
-  });
 }

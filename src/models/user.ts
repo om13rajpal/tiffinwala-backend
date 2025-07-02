@@ -1,9 +1,18 @@
 import mongoose, { Document, Schema } from "mongoose";
+import { string } from "zod";
+
+const addressSchema = new Schema<address>({
+  address: string,
+});
+
+interface address extends Document {
+  address: string;
+}
 
 interface User extends Document {
   firstName: string;
   lastName: string;
-  address: string;
+  address: address[];
   phone: string;
   joiningDate: Date;
   loyaltyPoints: number;
@@ -31,7 +40,7 @@ const userSchema = new Schema<User>({
     trim: true,
   },
   address: {
-    type: String,
+    type: [addressSchema],
     required: true,
     trim: true,
   },

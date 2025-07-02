@@ -43,7 +43,7 @@ export default async function handleSignup(
     const user = new userModel({
       firstName: firstName,
       lastName: lastName,
-      address: address,
+      address: [{ address }],
       phone: phoneNumber,
       joiningDate: new Date(),
     });
