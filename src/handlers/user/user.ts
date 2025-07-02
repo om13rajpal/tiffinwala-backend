@@ -66,10 +66,11 @@ export async function UpdateAddressHandler(req: Request, res: Response) {
     const { address } = req.body;
 
     if (!phone || !address) {
-      return res.status(400).json({
+      res.status(400).json({
         status: false,
         message: "Missing phone or address in request body",
       });
+      return;
     }
 
     const updatedUser = await userModel.findOneAndUpdate(
@@ -83,25 +84,28 @@ export async function UpdateAddressHandler(req: Request, res: Response) {
     );
 
     if (!updatedUser) {
-      return res.status(404).json({
+      res.status(404).json({
         status: false,
         message: "User not found",
       });
+      return
     }
 
-    return res.json({
+    res.json({
       status: true,
       message: "Address added successfully",
       data: {
         addresses: updatedUser.address,
       },
     });
+    return
   } catch (error) {
     console.error(error);
-    return res.status(500).json({
+    res.status(500).json({
       status: false,
       message: "Internal Server Error",
       error: error instanceof Error ? error.message : String(error),
     });
+    return
   }
 }
