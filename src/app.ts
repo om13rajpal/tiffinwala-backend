@@ -46,14 +46,10 @@ app.get("/", (req, res) => {
   res.send("Backend is up and working");
 });
 
-app.get("/webhook", (req, res) => {
-  res.sendStatus(200);
-});
 
-app.post("/webhook", (req, res) => {
+app.post("/", (req, res) => {
   const key = req.headers["x-api-key"];
   if (!key) {
-    // Allow empty key for health check
     console.log("Webhook pinged without key");
     res.sendStatus(200);
     return
