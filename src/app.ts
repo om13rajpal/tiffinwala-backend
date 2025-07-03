@@ -46,13 +46,24 @@ app.get("/", (req, res) => {
   res.send("Backend is up and working");
 });
 
+app.get("/webhook", (req, res) => {
+  res.sendStatus(200);
+});
+
 app.post("/webhook", (req, res) => {
   const key = req.headers["x-api-key"];
-  if (!key || key !== DOTPE_API_KEY) {
+  if (!key) {
+    // Allow empty key for health check
+    console.log("Webhook pinged without key");
+    res.sendStatus(200);
+    return
+  }
+  if (key !== DOTPE_API_KEY) {
     res.status(401).json({
       status: false,
       message: "Unauthorized",
     });
+    return
   }
 
   console.log("Webhook payload", req.body);
