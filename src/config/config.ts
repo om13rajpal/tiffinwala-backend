@@ -7,6 +7,8 @@ export const API_KEY = process.env.API_KEY;
 export const SECRET_KEY = process.env.SECRET_KEY;
 export const MONGO_URI = process.env.MONGO_URI;
 
+export const DOTPE_API_KEY = process.env.DOTPE_API_KEY
+
 export const AUTH_KEY = process.env.AUTH_KEY;
 
 export const BASE_URL = process.env.BASE_URI;
