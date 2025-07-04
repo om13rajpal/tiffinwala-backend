@@ -28,16 +28,16 @@ export async function otpHandler(req: Request, res: Response) {
   }
 
   console.log(createOtp);
-  // const sendResponse: any = await sendOTP(phoneNumber, otp);
-  // console.log(sendResponse)
+  const sendResponse: any = await sendOTP(phoneNumber, otp);
+  console.log(sendResponse)
 
-  // if (!sendResponse) {
-  //   res.status(500).json({
-  //     status: false,
-  //     message: "Internal Server Error",
-  //   });
-  //   return;
-  // }
+  if (!sendResponse) {
+    res.status(500).json({
+      status: false,
+      message: "Internal Server Error",
+    });
+    return;
+  }
 
   res.status(200).json({
     status: true,
