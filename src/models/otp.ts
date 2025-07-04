@@ -4,6 +4,7 @@ export interface OtpDocument extends mongoose.Document {
   phone: string;
   otp: string;
   createdAt: Date;
+  expiresAt: Date;
 }
 
 const otpSchema = new mongoose.Schema<OtpDocument>({
@@ -21,8 +22,11 @@ const otpSchema = new mongoose.Schema<OtpDocument>({
   },
   createdAt: {
     type: Date,
-    default: Date.now(),
-    expires: 900
+    default: Date.now,
+  },
+  expiresAt: {
+    type: Date,
+    default: () => new Date(Date.now() + 5 * 60 * 1000),
   },
 });
 

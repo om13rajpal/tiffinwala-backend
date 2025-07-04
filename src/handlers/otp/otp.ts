@@ -26,16 +26,18 @@ export async function otpHandler(req: Request, res: Response) {
     });
     return;
   }
-  const sendResponse: any = await sendOTP(phoneNumber, otp);
-  console.log(sendResponse)
 
-  if (!sendResponse) {
-    res.status(500).json({
-      status: false,
-      message: "Internal Server Error",
-    });
-    return;
-  }
+  console.log(createOtp);
+  // const sendResponse: any = await sendOTP(phoneNumber, otp);
+  // console.log(sendResponse)
+
+  // if (!sendResponse) {
+  //   res.status(500).json({
+  //     status: false,
+  //     message: "Internal Server Error",
+  //   });
+  //   return;
+  // }
 
   res.status(200).json({
     status: true,
@@ -60,7 +62,8 @@ export async function verifyOtpHandler(req: Request, res: Response) {
     return;
   }
 
-  if (otpData.otp != otp) {
+  const date = new Date();
+  if (otpData.otp != otp || (otpData.expiresAt && date > otpData.expiresAt)) {
     res.status(400).json({
       status: false,
       message: "Invalid OTP",
