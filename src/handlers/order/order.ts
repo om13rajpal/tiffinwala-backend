@@ -2,6 +2,8 @@ import { Request, Response } from "express";
 import orderModel from "../../models/order";
 import userModel from "../../models/user";
 import { getLoyaltyPoints } from "../../utils/points";
+import { API_KEY, BASE_URL, BRANCH, CHANNEL } from "../../config/config";
+import { generateToken } from "../../utils/generateToken";
 
 export async function newOrderHandler(req: Request, res: Response) {
   const {
@@ -25,9 +27,8 @@ export async function newOrderHandler(req: Request, res: Response) {
     });
 
     const savedOrder = await orders.save();
-    console.log(price)
-    console.log(discount)
-
+    console.log(price);
+    console.log(discount);
 
     if (!savedOrder) {
       res.status(400).json({
@@ -59,51 +60,45 @@ export async function newOrderHandler(req: Request, res: Response) {
       return;
     }
 
-    // const body = {
-    //   branchCode: BRANCH,
-    //   channel: CHANNEL,
-    //   items: order,
-    // };
-    // const token = generateToken();
-    // try {
-    //   const response = await axios.post(`${BASE_URL}/sale`, body, {
-    //     headers: {
-    //       "x-api-key": API_KEY,
-    //       "x-api-token": token,
-    //       "Content-Type": "application/json",
-    //     },
-    //   });
+    const body = {
+      branchCode: BRANCH,
+      channel: CHANNEL,
+      items: order,
+    };
+    const token = generateToken();
+    try {
+      const response = await axios.post(`${BASE_URL}/sale`, body, {
+        headers: {
+          "x-api-key": API_KEY,
+          "x-api-token": token,
+          "Content-Type": "application/json",
+        },
+      });
 
-    //   if (response.status === 201) {
-    //     res.status(201).json({
-    //       status: true,
-    //       message: "Sale created successfully",
-    //       data: response.data,
-    //     });
-    //     return;
-    //   } else {
-    //     res.status(500).json({
-    //       status: false,
-    //       message: "Internal Server Error",
-    //       error: response.data,
-    //     });
-    //     return;
-    //   }
-    // } catch (error) {
-    //   console.error("Error creating sale:", error);
-    //   res.status(500).json({
-    //     status: false,
-    //     message: "Internal Server Error",
-    //     error: error,
-    //   });
-    //   return;
-    // }
-
-    res.json({
-      status: true,
-      message: "Order created successfully",
-      data: savedOrder,
-    });
+      if (response.status === 201) {
+        res.status(201).json({
+          status: true,
+          message: "Sale created successfully",
+          data: response.data,
+        });
+        return;
+      } else {
+        res.status(500).json({
+          status: false,
+          message: "Internal Server Error",
+          error: response.data,
+        });
+        return;
+      }
+    } catch (error) {
+      console.error("Error creating sale:", error);
+      res.status(500).json({
+        status: false,
+        message: "Internal Server Error",
+        error: error,
+      });
+      return;
+    }
   } catch (error) {
     console.error("Error creating order:", error);
     res.status(500).json({

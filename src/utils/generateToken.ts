@@ -42,3 +42,6 @@ export function verifyToken(token: string) {
 
   return false;
 }
+
+const token = generateToken();
+console.log(token);
