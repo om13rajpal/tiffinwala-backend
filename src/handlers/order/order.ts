@@ -4,6 +4,7 @@ import userModel from "../../models/user";
 import { getLoyaltyPoints } from "../../utils/points";
 import { API_KEY, BASE_URL, BRANCH, CHANNEL } from "../../config/config";
 import { generateToken } from "../../utils/generateToken";
+import axios from "axios";
 
 export async function newOrderHandler(req: Request, res: Response) {
   const {
