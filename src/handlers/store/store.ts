@@ -2,6 +2,7 @@ import { Request, Response } from "express";
 import { API_KEY, BASE_URL, BRANCH, CHANNEL } from "../../config/config";
 import { generateToken } from "../../utils/generateToken";
 import axios from 'axios'
+import storeModel from "../../models/store";
 
 export async function updateStoreHandler(req: Request, res: Response) {
   const { status, reason } = req.body;

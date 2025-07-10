@@ -18,6 +18,7 @@ import connectMongo from "./db/db";
 import cors from "cors";
 import { limiter } from "./middeware/limiter";
 import { DOTPE_API_KEY } from "./config/config";
+import storeModel from "./models/store";
 
 connectMongo();
 
@@ -46,22 +47,29 @@ app.get("/", (req, res) => {
   res.send("Backend is up and working");
 });
 
-
-app.post("/", (req, res) => {
+app.post("/", async (req, res) => {
   const key = req.headers["x-api-key"];
   if (!key) {
     console.log("Webhook pinged without key");
     res.sendStatus(200);
-    return
+    return;
   }
   if (key !== DOTPE_API_KEY) {
     res.status(401).json({
       status: false,
       message: "Unauthorized",
     });
-    return
+    return;
   }
+  const body = req.body;
+  if (body.type === "outlet.status.change") {
+    const isActive = body.data?.active;
 
+    await storeModel.findByIdAndUpdate("687025cb187681e09dfb685a", {
+      active: isActive,
+      updatedAt: Date.now(),
+    });
+  }
   console.log("Webhook payload", req.body);
   res.sendStatus(200);
 });

@@ -1,6 +1,7 @@
 import { Request, Response } from "express";
 import transactionModel, { Transaction } from "../../models/transaction";
 import userModel from "../../models/user";
+import extraModel from "../../models/extra";
 
 export async function saveTransactionHandler(req: Request, res: Response) {
   const { senderId, receiverId, amount }: Transaction = req.body;

@@ -15,7 +15,7 @@ const transactionSchema = new Schema<Transaction>({
   receiverId: {
     type: Schema.Types.ObjectId,
     required: true,
-    ref: "User",
+    ref: "Merchant",
   },
   amount: {
     type: Number,

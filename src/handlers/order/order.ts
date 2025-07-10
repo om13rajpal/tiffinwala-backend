@@ -80,7 +80,7 @@ export async function newOrderHandler(req: Request, res: Response) {
         res.status(201).json({
           status: true,
           message: "Sale created successfully",
-          data: response.data,
+          data: savedOrder,
         });
         return;
       } else {

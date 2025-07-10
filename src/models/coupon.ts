@@ -33,7 +33,6 @@ const couponSchema = new Schema<Coupon>({
   },
   maxValue: {
     type: Number,
-    default: 300,
   },
 });
 
