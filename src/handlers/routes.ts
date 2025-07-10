@@ -29,7 +29,7 @@ import {
   getAllBanners,
   uploadBannerHandler,
 } from "./banner/banner";
-import { getStoreStatus, updateStoreHandler } from "./store/store";
+import { getStoreStatus } from "./store/store";
 import { sendNotificationHandler } from "./notifications/notifications";
 import {
   deletePointsHandler,
@@ -80,7 +80,6 @@ pointsRouter.delete("/:id", deletePointsHandler);
 
 notificationRouter.post("/send", sendNotificationHandler);
 
-storeRouter.put("/", updateStoreHandler);
 storeRouter.get("/status", getStoreStatus);
 
 userRouter.post("/auth", handleAuth);
@@ -103,7 +102,7 @@ orderRouter.post("/new", IsAuthenticated, newOrderHandler);
 
 couponRouter.get("/", getCouponsHandler);
 couponRouter.post("/", addCouponHandler);
-couponRouter.post("/verify", verifyCouponHandler);
+couponRouter.post("/verifyCoupon", verifyCouponHandler);
 couponRouter.delete("/:id", deleteCouponHander);
 
 transactionRouter.post("/", saveTransactionHandler);

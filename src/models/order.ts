@@ -11,10 +11,13 @@ interface Order extends Document {
   order: OrderItem[];
   orderDate: Date;
   price: number;
+  delivery: number;
   paymentStatus: string;
   paymentMethod: string;
   orderMode: string;
+  couponCode: string;
   discount?: number;
+  loyalty: number;
 }
 
 const orderItemSchema = new Schema<OrderItem>(
@@ -66,6 +69,10 @@ const orderSchema = new Schema<Order>({
     enum: ["pending", "completed", "failed"],
     default: "pending",
   },
+  couponCode: String,
+  delivery: {
+    type: Number,
+  },
   orderMode: {
     type: String,
     required: true,
@@ -74,7 +81,8 @@ const orderSchema = new Schema<Order>({
   discount: {
     type: Number,
     default: 0,
-  }
+  },
+  loyalty: Number
 });
 
 const orderModel = mongoose.model<Order>("Order", orderSchema);

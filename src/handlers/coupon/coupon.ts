@@ -38,7 +38,8 @@ export async function getCouponsHandler(req: Request, res: Response) {
 }
 
 export async function verifyCouponHandler(req: Request, res: Response) {
-  const { code, currentCartPrice } = req.body;
+  const { code, price } = req.body;
+  console.log(req.body)
   const coupon = await couponModel.findOne({ code });
 
   if (!coupon) {
@@ -50,7 +51,7 @@ export async function verifyCouponHandler(req: Request, res: Response) {
   }
 
   const currentDate = new Date();
-  if (coupon.expiryDate < currentDate && currentCartPrice > coupon.minOrder) {
+  if (coupon.expiryDate < currentDate || price < coupon.minOrder) {
     res.status(400).json({
       status: false,
       message: "Cannot apply this coupon",
