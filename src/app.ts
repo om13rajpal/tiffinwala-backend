@@ -2,6 +2,7 @@ import express from "express";
 import logger from "./middeware/logger";
 import { errorHandler, notFoundHandler } from "./middeware/error";
 import {
+  analyticsRouter,
   bannerRouter,
   couponRouter,
   menuRouter,
@@ -40,6 +41,7 @@ app.use("/banner", bannerRouter);
 app.use("/store", storeRouter);
 app.use("/notification", notificationRouter);
 app.use("/points", pointsRouter);
+app.use("/analytics", analyticsRouter);
 
 app.use("/uploads", express.static("uploads"));
 

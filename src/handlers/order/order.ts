@@ -23,6 +23,7 @@ export async function newOrderHandler(req: Request, res: Response) {
   console.log("Incoming order request:", req.body);
 
   try {
+    // Save the order locally
     const orders = await orderModel.create({
       order,
       price,
@@ -37,10 +38,6 @@ export async function newOrderHandler(req: Request, res: Response) {
 
     const savedOrder = await orders.save();
 
-    console.log("Order subtotal:", price);
-    console.log("Coupon discount:", discount);
-    console.log("Loyalty discount:", loyalty);
-
     if (!savedOrder) {
       res.status(400).json({
         status: false,
@@ -49,30 +46,20 @@ export async function newOrderHandler(req: Request, res: Response) {
       return;
     }
 
-    // Calculate how many loyalty points to award
+    // Calculate effective amount
     const effectiveAmount = price - discount;
 
+    // Calculate loyalty points
     let earnedPoints = 0;
-
-    // Fetch loyalty slabs from DB
     const slabs = await pointsModel.find({});
-
     for (const slab of slabs) {
-      if (
-        effectiveAmount >= slab.lower &&
-        effectiveAmount <= slab.upper
-      ) {
+      if (effectiveAmount >= slab.lower && effectiveAmount <= slab.upper) {
         earnedPoints = slab.loyaltyPoints;
         break;
       }
     }
 
-    console.log(`Effective order amount: ₹${effectiveAmount}`);
-    console.log(`Earned loyalty points: ${earnedPoints}`);
-
-    // Update user:
-    // - subtract loyalty points used
-    // - add earned loyalty points
+    // Update user’s loyalty points
     const user = await userModel.findOneAndUpdate(
       { phone },
       {
@@ -93,54 +80,141 @@ export async function newOrderHandler(req: Request, res: Response) {
       return;
     }
 
-    // Your original commented-out sale logic preserved below
-    // const body = {
-    //   branchCode: BRANCH,
-    //   channel: CHANNEL,
-    //   items: order,
-    // };
-    // const token = generateToken();
-    // try {
-    //   const response = await axios.post(`${BASE_URL}/sale`, body, {
-    //     headers: {
-    //       "x-api-key": API_KEY,
-    //       "x-api-token": token,
-    //       "Content-Type": "application/json",
-    //     },
-    //   });
-    //
-    //   if (response.status === 201) {
-    res.status(201).json({
-      status: true,
-      message: "Sale created successfully",
-      data: savedOrder,
-      earnedPoints,
-    });
-    //     return;
-    //   } else {
-    //     res.status(500).json({
-    //       status: false,
-    //       message: "Internal Server Error",
-    //       error: response.data,
-    //     });
-    //     return;
-    //   }
-    // } catch (error) {
-    //   console.error("Error creating sale:", error);
-    //   res.status(500).json({
-    //     status: false,
-    //     message: "Internal Server Error",
-    //     error: error,
-    //   });
-    //   return;
-    // }
+    // Build Rista item array
+    const items = order.map((item: any) => ({
+      shortName: item.shortName,
+      skuCode: item.skuCode,
+      quantity: item.quantity,
+      unitPrice: item.unitPrice,
+      itemTotalAmount: item.unitPrice * item.quantity,
+      overridden: true,
+      discounts: [],
+      taxes: [],
+      options: [],
+      itemLog: [],
+    }));
 
-  } catch (error) {
-    console.error("Error creating order:", error);
+    const itemTotalAmount = items.reduce(
+      (sum: any, i: any) => sum + i.itemTotalAmount,
+      0
+    );
+
+    // Build charges array
+    const charges = delivery
+      ? [
+          {
+            name: "Delivery",
+            type: "Absolute",
+            rate: 0,
+            saleAmount: delivery,
+            amount: delivery,
+            isDirectCharge: true,
+            taxes: [],
+          },
+        ]
+      : [];
+
+    const payments = [
+      {
+        mode: paymentMethod,
+        amount: effectiveAmount + (delivery || 0),
+        reference: "",
+        note: "",
+      },
+    ];
+
+    const salePayload = {
+      branchCode: BRANCH,
+      status: "Open",
+      channel: CHANNEL,
+      customer: {
+        id: "",
+        title: "",
+        name: phone,
+        email: "",
+        phoneNumber: phone,
+      },
+      items,
+      itemTotalAmount,
+      directChargeAmount: delivery || 0,
+      chargeAmount: delivery || 0,
+      discountAmount: discount,
+      taxAmountIncluded: 0,
+      taxAmountExcluded: 0,
+      billAmount: price,
+      roundOffAmount: 0,
+      billRoundedAmount: effectiveAmount + (delivery || 0),
+      tipAmount: 0,
+      totalAmount: effectiveAmount + (delivery || 0),
+      charges,
+      discounts: [],
+      taxes: [],
+      payments,
+      balanceAmount: 0,
+      delivery: {
+        title: "",
+        advanceOrder: false,
+        name: phone,
+        email: "",
+        phoneNumber: phone,
+        mode: "Delivery",
+        address: {
+          label: "",
+          addressLine: "",
+          city: "",
+          state: "",
+          country: "",
+          zip: "",
+          landmark: "",
+          latitude: 0,
+          longitude: 0,
+        },
+        deliveryDate: "",
+      },
+    };
+
+    console.log("Sending payload to Rista:", salePayload);
+
+    const token = generateToken();
+
+    const response = await axios.post(`${BASE_URL}/sale`, salePayload, {
+      headers: {
+        "x-api-key": API_KEY,
+        "x-api-token": token,
+        "Content-Type": "application/json",
+      },
+    });
+
+    console.log("Rista response:", response.data);
+
+    if (response.status === 201) {
+      res.status(201).json({
+        status: true,
+        message: "Sale created successfully",
+        data: savedOrder,
+        earnedPoints,
+        ristaResponse: response.data,
+      });
+      return;
+    } else {
+      res.status(500).json({
+        status: false,
+        message: "Error creating sale",
+        error: response.data,
+      });
+      return;
+    }
+  } catch (error: any) {
+    console.error("Error creating sale:", error);
+     if (error.response) {
+    console.error("Rista error details:", error.response.data);
+  }
     res.status(500).json({
       status: false,
       message: "Internal server error",
+      error: error instanceof Error ? error.message : error,
     });
+    return;
   }
 }
 

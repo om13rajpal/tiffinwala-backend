@@ -41,6 +41,7 @@ import {
   CLOUDINARY_API_SECRET,
   CLOUDINARY_CLOUD_NAME,
 } from "../config/config";
+import { getAnalyticsOverview, getOrdersPerDay, getTopItems } from "./analytics/analytics";
 
 cloudinary.config({
   cloud_name: CLOUDINARY_CLOUD_NAME,
@@ -73,6 +74,8 @@ export const transactionRouter = Router();
 export const storeRouter = Router();
 export const notificationRouter = Router();
 export const pointsRouter = Router();
+export const analyticsRouter = Router();
+
 
 pointsRouter.post("/", savePointsHandler);
 pointsRouter.get("/", getPointsHandler);
@@ -112,3 +115,7 @@ transactionRouter.get("/received/:id", getReceivedTransactionHandler);
 bannerRouter.post("/upload", upload.single("file"), uploadBannerHandler);
 bannerRouter.get("/", getAllBanners);
 bannerRouter.delete("/:id", deleteBannerHandler);
+
+analyticsRouter.get("/overview", getAnalyticsOverview);
+analyticsRouter.get("/orders-per-day", getOrdersPerDay);
+analyticsRouter.get("/top-items", getTopItems);
