@@ -99,7 +99,6 @@ export async function newOrderHandler(req: Request, res: Response) {
       0
     );
 
-    // Build charges array
     const charges = delivery
       ? [
           {
@@ -123,6 +122,7 @@ export async function newOrderHandler(req: Request, res: Response) {
       },
     ];
 
+    // UPDATED: delivery mode set to SelfDelivery
     const salePayload = {
       branchCode: BRANCH,
       status: "Open",
@@ -152,24 +152,7 @@ export async function newOrderHandler(req: Request, res: Response) {
       payments,
       balanceAmount: 0,
       delivery: {
-        title: "",
-        advanceOrder: false,
-        name: phone,
-        email: "",
-        phoneNumber: phone,
-        mode: "Delivery",
-        address: {
-          label: "",
-          addressLine: "",
-          city: "",
-          state: "",
-          country: "",
-          zip: "",
-          landmark: "",
-          latitude: 0,
-          longitude: 0,
-        },
-        deliveryDate: "",
+        mode: "SelfDelivery",
       },
     };
 
@@ -206,9 +189,9 @@ export async function newOrderHandler(req: Request, res: Response) {
     }
   } catch (error: any) {
     console.error("Error creating sale:", error);
-     if (error.response) {
-    console.error("Rista error details:", error.response.data);
-  }
+    if (error.response) {
+      console.error("Rista error details:", error.response.data);
+    }
     res.status(500).json({
       status: false,
       message: "Internal server error",
