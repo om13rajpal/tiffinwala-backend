@@ -20,16 +20,49 @@ import cors from "cors";
 import { limiter } from "./middeware/limiter";
 import { DOTPE_API_KEY } from "./config/config";
 import storeModel from "./models/store";
+import helmet from "helmet";
+import compression from "compression";
+import hpp from "hpp";
 
 connectMongo();
 
 const app = express();
 
 app.set("trust proxy", 1);
+app.use(helmet());
+app.use(hpp());
 app.use(cors());
+app.use(compression());
 app.use(ExpressMongoSanitize());
-app.use(express.json());
+app.use(express.json({ limit: "1mb" }));
 app.use(logger);
+
+app.use((req, res, next) => {
+  const forbiddenPaths = [
+    /^\/\.env/,
+    /^\/\.git/,
+    /^\/phpinfo\.php/,
+    /^\/info\.php/,
+    /^\/_profiler/,
+    /^\/aws/,
+    /^\/config/,
+    /^\/docker/,
+    /^\/logs/,
+    /^\/core/,
+    /^\/admin/,
+    /^\/settings\.py/,
+    /^\/application\.properties/,
+    /^\/docker-compose\.yml/,
+  ];
+
+  if (forbiddenPaths.some((regex) => regex.test(req.path))) {
+    console.warn(`Blocked suspicious request: ${req.path} from ${req.ip}`);
+    res.status(403).json({ message: "Forbidden" });
+    return;
+  }
+
+  next();
+});
 
 app.use("/user", limiter, userRouter);
 app.use("/otp", limiter, otpRouter);

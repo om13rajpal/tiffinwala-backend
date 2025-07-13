@@ -152,7 +152,10 @@ export async function newOrderHandler(req: Request, res: Response) {
       payments,
       balanceAmount: 0,
       delivery: {
-        mode: "SelfDelivery",
+        mode: "Delivery",
+        name: phone,
+        phoneNumber: phone,
+        email: "",
       },
     };
 
