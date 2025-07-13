@@ -36,6 +36,7 @@ app.use(compression());
 app.use(ExpressMongoSanitize());
 app.use(express.json({ limit: "1mb" }));
 app.use(logger);
+app.use(limiter);
 
 app.use((req, res, next) => {
   const forbiddenPaths = [
@@ -64,12 +65,12 @@ app.use((req, res, next) => {
   next();
 });
 
-app.use("/user", limiter, userRouter);
-app.use("/otp", limiter, otpRouter);
+app.use("/user", userRouter);
+app.use("/otp", otpRouter);
 app.use("/menu", menuRouter);
-app.use("/order", limiter, orderRouter);
-app.use("/coupon", limiter, couponRouter);
-app.use("/transaction", limiter, transactionRouter);
+app.use("/order", orderRouter);
+app.use("/coupon", couponRouter);
+app.use("/transaction", transactionRouter);
 app.use("/banner", bannerRouter);
 app.use("/store", storeRouter);
 app.use("/notification", notificationRouter);
