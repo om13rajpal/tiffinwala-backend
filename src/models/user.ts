@@ -43,7 +43,7 @@ const userSchema = new Schema<User>({
   },
   joiningDate: {
     type: Date,
-    default: Date.now(),
+    default: Date.now,
   },
   loyaltyPoints: {
     type: Number,

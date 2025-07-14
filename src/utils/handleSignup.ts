@@ -9,13 +9,13 @@ export default async function handleSignup(
   phoneNumber: string,
   firstName: string,
   lastName: string,
-  address: string
+  address: string,
+  referral?: string
 ) {
   const signupBody: SignupRequest = {
     firstName,
     lastName,
     phoneNumber,
-    address,
   };
 
   const isValidBody = validateSignup(signupBody);
@@ -43,12 +43,23 @@ export default async function handleSignup(
     const user = new userModel({
       firstName: firstName,
       lastName: lastName,
-      address: [{ address }],
+      address: [address],
       phone: phoneNumber,
       joiningDate: new Date(),
     });
 
     await user.save();
+
+    if (referral) {
+      await userModel.findOneAndUpdate(
+        { phone: referral },
+        {
+          $inc: {
+            loyaltyPoints: 20,
+          },
+        }
+      );
+    }
 
     const loginToken = generateLoginToken(phoneNumber);
 

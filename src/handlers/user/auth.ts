@@ -3,11 +3,14 @@ import userModel from "../../models/user";
 import handleLogin from "../../utils/handleLogin";
 import handleSignup from "../../utils/handleSignup";
 
+export interface Address {
+  addressLine: string;
+}
+
 export interface SignupRequest {
   firstName: string;
   lastName: string;
   phoneNumber: string;
-  address: string
 }
 
 export async function handleAuth(req: Request, res: Response) {
@@ -35,9 +38,9 @@ export async function handleAuth(req: Request, res: Response) {
 }
 
 export async function handleNewUser(req: Request, res: Response) {
-  const { firstName, lastName, phoneNumber, address } = req.body;
+  const { firstName, lastName, phoneNumber, address, referral } = req.body;
 
-  const response: any = await handleSignup(phoneNumber, firstName, lastName, address);
+  const response: any = await handleSignup(phoneNumber, firstName, lastName, address, referral);
 
   if (!response.status) {
     res.status(400).json(response);

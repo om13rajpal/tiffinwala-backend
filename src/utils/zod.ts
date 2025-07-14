@@ -59,7 +59,7 @@ export function validateSignup(data: SignupRequest) {
   return result;
 }
 
-export function validateOtp(data: OtpDocument){
-  const result = OtpSchema.safeParse(data)
-  return result
+export function validateOtp(data: OtpDocument) {
+  const result = OtpSchema.safeParse(data);
+  return result;
 }
