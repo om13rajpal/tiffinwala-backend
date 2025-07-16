@@ -17,8 +17,11 @@ export async function newOrderHandler(req: Request, res: Response) {
     discount,
     delivery,
     couponCode,
-    loyalty,
+    loyalty = 0,
   } = req.body;
+
+  const safeLoyalty =
+    typeof loyalty === "number" && Number.isFinite(loyalty) ? loyalty : 0;
 
   console.log("Incoming order request:", req.body);
 
@@ -67,7 +70,7 @@ export async function newOrderHandler(req: Request, res: Response) {
           orders: savedOrder._id,
         },
         $inc: {
-          loyaltyPoints: earnedPoints - loyalty,
+          loyaltyPoints: earnedPoints - safeLoyalty,
         },
       }
     );
@@ -81,7 +84,7 @@ export async function newOrderHandler(req: Request, res: Response) {
     }
 
     // Build Rista item array
-    const items = order.map((item: any) => ({
+    const payloadItems = order.map((item: any) => ({
       shortName: item.shortName,
       skuCode: item.skuCode,
       quantity: item.quantity,
@@ -90,11 +93,16 @@ export async function newOrderHandler(req: Request, res: Response) {
       overridden: true,
       discounts: [],
       taxes: [],
-      options: [],
+      options: (item.options || []).map((option: any) => ({
+        name: option.name,
+        quantity: 1,
+        unitPrice: option.price,
+        itemTotalAmount: option.price,
+      })),
       itemLog: [],
     }));
 
-    const itemTotalAmount = items.reduce(
+    const itemTotalAmount = payloadItems.reduce(
       (sum: any, i: any) => sum + i.itemTotalAmount,
       0
     );
@@ -134,7 +142,7 @@ export async function newOrderHandler(req: Request, res: Response) {
         email: "",
         phoneNumber: phone,
       },
-      items,
+      items: payloadItems,
       itemTotalAmount,
       directChargeAmount: delivery || 0,
       chargeAmount: delivery || 0,
