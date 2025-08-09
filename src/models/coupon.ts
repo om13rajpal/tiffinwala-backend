@@ -5,6 +5,7 @@ interface Coupon extends Document {
   code: string;
   discount: number | string;
   expiryDate: Date;
+  enabled: boolean;
   minOrder: number;
   maxValue?: number;
 }
@@ -26,6 +27,10 @@ const couponSchema = new Schema<Coupon>({
       message: "Value must be a string or number",
     },
     required: true,
+  },
+  enabled: {
+    type: Boolean,
+    default: true,
   },
   expiryDate: {
     type: Date,

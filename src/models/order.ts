@@ -12,6 +12,7 @@ interface Order extends Document {
   orderDate: Date;
   price: number;
   delivery: number;
+  handling: number;
   paymentStatus: string;
   paymentMethod: string;
   orderMode: string;
@@ -51,6 +52,9 @@ const orderSchema = new Schema<Order>({
       required: true,
     },
   ],
+  handling: {
+    type: Number,
+  },
   price: {
     type: Number,
     required: true,

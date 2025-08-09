@@ -1,3 +1,4 @@
+// src/controllers/index.ts (your router file)
 import { Router } from "express";
 import { otpHandler, verifyOtpHandler } from "./otp/otp";
 import { menuHandler } from "./menu/menu";
@@ -17,6 +18,11 @@ import {
   deleteCouponHander,
   getCouponsHandler,
   verifyCouponHandler,
+  // NEW imports
+  getCouponStatusHandler,
+  setCouponEnabledByIdHandler,
+  setCouponEnabledByCodeHandler,
+  toggleCouponEnabledByIdHandler,
 } from "./coupon/coupon";
 import {
   getReceivedTransactionHandler,
@@ -41,7 +47,11 @@ import {
   CLOUDINARY_API_SECRET,
   CLOUDINARY_CLOUD_NAME,
 } from "../config/config";
-import { getAnalyticsOverview, getOrdersPerDay, getTopItems } from "./analytics/analytics";
+import {
+  getAnalyticsOverview,
+  getOrdersPerDay,
+  getTopItems,
+} from "./analytics/analytics";
 
 cloudinary.config({
   cloud_name: CLOUDINARY_CLOUD_NAME,
@@ -51,17 +61,13 @@ cloudinary.config({
 
 const storage = new CloudinaryStorage({
   cloudinary,
-  params: async (req, file) => {
-    return {
-      folder: "banners",
-      allowed_formats: ["jpg", "jpeg", "png", "webp"],
-    };
-  },
+  params: async () => ({
+    folder: "banners",
+    allowed_formats: ["jpg", "jpeg", "png", "webp"],
+  }),
 });
 
-const upload = multer({
-  storage: storage,
-});
+const upload = multer({ storage });
 
 export const userRouter = Router();
 export const otpRouter = Router();
@@ -75,7 +81,6 @@ export const storeRouter = Router();
 export const notificationRouter = Router();
 export const pointsRouter = Router();
 export const analyticsRouter = Router();
-
 
 pointsRouter.post("/", savePointsHandler);
 pointsRouter.get("/", getPointsHandler);
@@ -103,10 +108,17 @@ menuRouter.get("/", menuHandler);
 
 orderRouter.post("/new", IsAuthenticated, newOrderHandler);
 
+/** COUPONS */
 couponRouter.get("/", getCouponsHandler);
 couponRouter.post("/", addCouponHandler);
 couponRouter.post("/verifyCoupon", verifyCouponHandler);
 couponRouter.delete("/:id", deleteCouponHander);
+
+// NEW routes for status + toggle + status checker
+couponRouter.put("/:id/status", setCouponEnabledByIdHandler);        // body: { enabled: true|false }
+couponRouter.put("/code/:code/status", setCouponEnabledByCodeHandler); // body: { enabled: true|false }
+couponRouter.post("/:id/toggle", toggleCouponEnabledByIdHandler);      // toggle
+couponRouter.get("/status/:code", getCouponStatusHandler);             // ?price=123 (optional)
 
 transactionRouter.post("/", saveTransactionHandler);
 transactionRouter.get("/sent/:id", getSentTransactionHandler);
