@@ -151,3 +151,83 @@ export async function getLatestMenuSnapshot(req: Request, res: Response) {
     return;
   }
 }
+
+// PUT /menu/item/:itemId[?snapshotId=<mongoId>]
+export async function editMenuItemHandler(req: Request, res: Response) {
+  try {
+    const { itemId } = req.params;
+    const { image, inStock } = req.body as { image?: string; inStock?: boolean };
+    const { snapshotId } = req.query as { snapshotId?: string };
+
+    if (image === undefined && inStock === undefined) {
+      res.status(400).json({
+        status: false,
+        message: "Provide at least one of: { image: string, inStock: boolean }",
+      });
+      return;
+    }
+
+    // Load the snapshot doc (NOT lean, we need to modify and save)
+    const doc =
+      snapshotId
+        ? await MenuSnapshot.findById(snapshotId)
+        : await MenuSnapshot.findOne({}, {}, { sort: { createdAt: -1 } });
+
+    if (!doc) {
+      res.status(404).json({ status: false, message: "Snapshot not found" });
+      return;
+    }
+
+    // Ensure payload & items exist
+    const payload: any = doc.payload;
+    if (!payload || !Array.isArray(payload.items)) {
+      res.status(400).json({
+        status: false,
+        message: "Snapshot payload has no items array to edit",
+      });
+      return;
+    }
+
+    // Find the item by itemId
+    const idx = payload.items.findIndex((it: any) => it?.itemId === itemId);
+    if (idx === -1) {
+      res.status(404).json({ status: false, message: "Item not found in snapshot" });
+      return;
+    }
+
+    const item = payload.items[idx];
+
+    // Apply updates
+    if (image !== undefined) {
+      if (typeof image !== "string") {
+        res.status(400).json({ status: false, message: "`image` must be a string" });
+        return;
+      }
+      item.image = image;
+    }
+    if (inStock !== undefined) {
+      if (typeof inStock !== "boolean") {
+        res.status(400).json({ status: false, message: "`inStock` must be a boolean" });
+        return;
+      }
+      item.inStock = inStock;
+    }
+
+    // Mark modified & save
+    doc.markModified("payload");
+    await doc.save();
+
+    res.status(200).json({
+      status: true,
+      snapshotId: doc._id,
+      updatedItem: item,
+    });
+    return;
+  } catch (err) {
+    console.error(err);
+    res
+      .status(500)
+      .json({ status: false, message: "Error updating item", error: err });
+    return;
+  }
+}
