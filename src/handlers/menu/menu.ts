@@ -141,7 +141,7 @@ export async function getLatestMenuSnapshot(req: Request, res: Response) {
     // ✅ Return the payload AS-IS (exact same shape as the original API),
     //    but it already includes your added image/inStock fields from the sync step.
     // @ts-ignore
-    res.status(200).json(doc.payload);
+    res.status(200).json({ status: true, data: doc.payload });
     return;
   } catch (err) {
     console.error(err);
@@ -156,7 +156,10 @@ export async function getLatestMenuSnapshot(req: Request, res: Response) {
 export async function editMenuItemHandler(req: Request, res: Response) {
   try {
     const { itemId } = req.params;
-    const { image, inStock } = req.body as { image?: string; inStock?: boolean };
+    const { image, inStock } = req.body as {
+      image?: string;
+      inStock?: boolean;
+    };
     const { snapshotId } = req.query as { snapshotId?: string };
 
     if (image === undefined && inStock === undefined) {
@@ -168,10 +171,9 @@ export async function editMenuItemHandler(req: Request, res: Response) {
     }
 
     // Load the snapshot doc (NOT lean, we need to modify and save)
-    const doc =
-      snapshotId
-        ? await MenuSnapshot.findById(snapshotId)
-        : await MenuSnapshot.findOne({}, {}, { sort: { createdAt: -1 } });
+    const doc = snapshotId
+      ? await MenuSnapshot.findById(snapshotId)
+      : await MenuSnapshot.findOne({}, {}, { sort: { createdAt: -1 } });
 
     if (!doc) {
       res.status(404).json({ status: false, message: "Snapshot not found" });
@@ -191,7 +193,9 @@ export async function editMenuItemHandler(req: Request, res: Response) {
     // Find the item by itemId
     const idx = payload.items.findIndex((it: any) => it?.itemId === itemId);
     if (idx === -1) {
-      res.status(404).json({ status: false, message: "Item not found in snapshot" });
+      res
+        .status(404)
+        .json({ status: false, message: "Item not found in snapshot" });
       return;
     }
 
@@ -200,14 +204,18 @@ export async function editMenuItemHandler(req: Request, res: Response) {
     // Apply updates
     if (image !== undefined) {
       if (typeof image !== "string") {
-        res.status(400).json({ status: false, message: "`image` must be a string" });
+        res
+          .status(400)
+          .json({ status: false, message: "`image` must be a string" });
         return;
       }
       item.image = image;
     }
     if (inStock !== undefined) {
       if (typeof inStock !== "boolean") {
-        res.status(400).json({ status: false, message: "`inStock` must be a boolean" });
+        res
+          .status(400)
+          .json({ status: false, message: "`inStock` must be a boolean" });
         return;
       }
       item.inStock = inStock;
