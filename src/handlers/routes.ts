@@ -1,7 +1,7 @@
 // src/controllers/index.ts (your router file)
 import { Router } from "express";
 import { otpHandler, verifyOtpHandler } from "./otp/otp";
-import { menuHandler } from "./menu/menu";
+import { getLatestMenuSnapshot, menuHandler, syncAndSaveMenuHandler } from "./menu/menu";
 import { handleAuth, handleNewUser } from "./user/auth";
 import { getOrdersHandler, newOrderHandler } from "./order/order";
 import { AddPointsHandler, GetPointsHandler } from "./user/loyalty";
@@ -105,6 +105,8 @@ otpRouter.post("/verify", verifyOtpHandler);
 otpRouter.post("/send", otpHandler);
 
 menuRouter.get("/", menuHandler);
+menuRouter.post("/sync", syncAndSaveMenuHandler); // fetch + normalize + save
+menuRouter.get("/latest", getLatestMenuSnapshot); // read last saved
 
 orderRouter.post("/new", IsAuthenticated, newOrderHandler);
 

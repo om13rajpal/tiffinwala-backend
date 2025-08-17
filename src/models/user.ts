@@ -47,7 +47,7 @@ const userSchema = new Schema<User>({
   },
   loyaltyPoints: {
     type: Number,
-    default: 0,
+    default: 20,
   },
   seller: {
     type: Boolean,
