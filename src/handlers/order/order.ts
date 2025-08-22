@@ -6,6 +6,7 @@ import pointsModel from "../../models/points";
 import { API_KEY, BASE_URL, BRANCH, CHANNEL } from "../../config/config";
 import { generateToken } from "../../utils/generateToken";
 import axios from "axios";
+import sendOTP from "../../utils/otp";
 
 const toNum = (v: any, fallback = 0) => {
   const n = Number(v);
@@ -32,7 +33,11 @@ type RistaItem = {
   _computedLineGrand?: number;
 };
 
-function buildItems(order: any[]): { items: RistaItem[]; itemBaseTotal: number; itemGrandTotal: number } {
+function buildItems(order: any[]): {
+  items: RistaItem[];
+  itemBaseTotal: number;
+  itemGrandTotal: number;
+} {
   const items: RistaItem[] = (order || []).map((item: any) => {
     const qty = toNum(item.quantity, 0);
     const unit = toNum(item.unitPrice, 0);
@@ -43,7 +48,10 @@ function buildItems(order: any[]): { items: RistaItem[]; itemBaseTotal: number; 
       unitPrice: toNum(o.price, 0),
       itemTotalAmount: toNum(o.price, 0),
     }));
-    const optionTotal = options.reduce((s: any, o: any) => s + o.itemTotalAmount, 0);
+    const optionTotal = options.reduce(
+      (s: any, o: any) => s + o.itemTotalAmount,
+      0
+    );
     return {
       shortName: item.shortName,
       skuCode: item.skuCode,
@@ -59,8 +67,14 @@ function buildItems(order: any[]): { items: RistaItem[]; itemBaseTotal: number; 
     };
   });
 
-  const itemBaseTotal = items.reduce((s, i) => s + toNum(i.itemTotalAmount, 0), 0);
-  const itemGrandTotal = items.reduce((s, i) => s + toNum(i._computedLineGrand, 0), 0);
+  const itemBaseTotal = items.reduce(
+    (s, i) => s + toNum(i.itemTotalAmount, 0),
+    0
+  );
+  const itemGrandTotal = items.reduce(
+    (s, i) => s + toNum(i._computedLineGrand, 0),
+    0
+  );
   return { items, itemBaseTotal, itemGrandTotal };
 }
 
@@ -104,7 +118,11 @@ async function postToRista(payload: any) {
     });
     return { ok: resp.status === 201, data: resp.data, error: null as any };
   } catch (err: any) {
-    return { ok: false, data: null as any, error: err?.response?.data || err?.message || err };
+    return {
+      ok: false,
+      data: null as any,
+      error: err?.response?.data || err?.message || err,
+    };
   }
 }
 
@@ -119,14 +137,20 @@ function applyLineLevelProration(items: RistaItem[], totalDiscount: number) {
   return items.map((it, idx) => {
     const weight = toNum(it._computedLineGrand, 0) / base;
     // last line absorbs rounding residue
-    const part = idx === n - 1 ? remaining : Math.round((totalDiscount * weight + Number.EPSILON) * 100) / 100;
-    remaining = Math.max(0, Math.round((remaining - part + Number.EPSILON) * 100) / 100);
+    const part =
+      idx === n - 1
+        ? remaining
+        : Math.round((totalDiscount * weight + Number.EPSILON) * 100) / 100;
+    remaining = Math.max(
+      0,
+      Math.round((remaining - part + Number.EPSILON) * 100) / 100
+    );
 
     const discountObj = {
       name: "Applied Discount",
       type: "Absolute",
-      rate: part,          // many tenants require 'rate'
-      amount: -part,       // negative for discounts
+      rate: part, // many tenants require 'rate'
+      amount: -part, // negative for discounts
       saleAmount: part,
       isDirectDiscount: true,
       taxes: [],
@@ -138,26 +162,26 @@ function applyLineLevelProration(items: RistaItem[], totalDiscount: number) {
 export async function newOrderHandler(req: Request, res: Response) {
   const {
     order,
-    price,                 // subtotal from app (items total incl. options)
-    handling = 0,          // packaging total
-    delivery = 0,          // delivery fee
+    price, // subtotal from app (items total incl. options)
+    handling = 0, // packaging total
+    delivery = 0, // delivery fee
     phone,
-    paymentMethod,         // "cod"
-    paymentStatus,         // "pending"
+    paymentMethod, // "cod"
+    paymentStatus, // "pending"
     orderMode,
-    discount = 0,          // coupon discount (₹)
-    loyalty = 0,           // loyalty discount (₹)
+    discount = 0, // coupon discount (₹)
+    loyalty = 0, // loyalty discount (₹)
     couponCode,
   } = req.body;
 
   try {
     // Normalize
     const subtotalFromApp = toNum(price, 0);
-    const packagingTotal  = Math.max(0, toNum(handling, 0));
-    const deliveryTotal   = Math.max(0, toNum(delivery, 0));
-    const couponDiscount  = Math.max(0, toNum(discount, 0));
+    const packagingTotal = Math.max(0, toNum(handling, 0));
+    const deliveryTotal = Math.max(0, toNum(delivery, 0));
+    const couponDiscount = Math.max(0, toNum(discount, 0));
     const loyaltyDiscount = Math.max(0, toNum(loyalty, 0));
-    const totalDiscount   = couponDiscount + loyaltyDiscount;
+    const totalDiscount = couponDiscount + loyaltyDiscount;
 
     // Get user
     const user = await userModel.findOne({ phone });
@@ -165,14 +189,22 @@ export async function newOrderHandler(req: Request, res: Response) {
       res.status(400).json({ status: false, message: "User not found" });
       return;
     }
-    const fullName = [user.firstName, user.lastName].filter(Boolean).join(" ").trim() || phone;
+    const fullName =
+      [user.firstName, user.lastName].filter(Boolean).join(" ").trim() || phone;
 
     // Build items & choose subtotal mirror UI
-    const { items: payloadItemsRaw, itemBaseTotal, itemGrandTotal } = buildItems(order || []);
+    const {
+      items: payloadItemsRaw,
+      itemBaseTotal,
+      itemGrandTotal,
+    } = buildItems(order || []);
     const subtotal = subtotalFromApp || itemGrandTotal || itemBaseTotal;
 
     // Final bill like UI
-    const finalBill = Math.max(0, subtotal - totalDiscount + deliveryTotal + packagingTotal);
+    const finalBill = Math.max(
+      0,
+      subtotal - totalDiscount + deliveryTotal + packagingTotal
+    );
 
     // Save local order
     const localOrder = await orderModel.create({
@@ -206,16 +238,25 @@ export async function newOrderHandler(req: Request, res: Response) {
         break;
       }
     }
+
     await userModel.findOneAndUpdate(
       { phone },
-      { $push: { orders: savedOrder._id }, $inc: { loyaltyPoints: earnedPoints } }
+      {
+        $push: { orders: savedOrder._id },
+        $inc: { loyaltyPoints: earnedPoints },
+      }
     );
 
     // Charges
-    const { charges, totalDirectCharges } = buildCharges(deliveryTotal, packagingTotal);
+    const { charges, totalDirectCharges } = buildCharges(
+      deliveryTotal,
+      packagingTotal
+    );
 
     // Payments
-    const payments = [{ mode: paymentMethod, amount: finalBill, reference: "", note: "" }];
+    const payments = [
+      { mode: paymentMethod, amount: finalBill, reference: "", note: "" },
+    ];
 
     // ===== Attempt A: Sale-level discount with rate & negative amount =====
     const saleLevelDiscounts_A =
@@ -224,8 +265,8 @@ export async function newOrderHandler(req: Request, res: Response) {
             {
               name: "Coupon + Loyalty",
               type: "Absolute",
-              rate: totalDiscount,     // required in many tenants
-              amount: -totalDiscount,  // negative for discount
+              rate: totalDiscount, // required in many tenants
+              amount: -totalDiscount, // negative for discount
               saleAmount: totalDiscount,
               isDirectDiscount: true,
               taxes: [],
@@ -237,7 +278,13 @@ export async function newOrderHandler(req: Request, res: Response) {
       branchCode: BRANCH,
       status: "Open",
       channel: CHANNEL,
-      customer: { id: "", title: "", name: fullName, email: "", phoneNumber: phone },
+      customer: {
+        id: "",
+        title: "",
+        name: fullName,
+        email: "",
+        phoneNumber: phone,
+      },
       items: payloadItemsRaw.map(({ _computedLineGrand, ...rest }) => rest),
       itemTotalAmount: subtotal,
       directChargeAmount: totalDirectCharges,
@@ -256,8 +303,9 @@ export async function newOrderHandler(req: Request, res: Response) {
       payments,
       balanceAmount: 0,
       delivery: {
-        mode: String(orderMode || "").toLowerCase() === "pickup" ? "SelfDelivery" : "Delivery",
+        mode: "SelfDelivery",
         name: fullName,
+        address: user.address || "",
         phoneNumber: phone,
         email: "",
       },
@@ -266,6 +314,15 @@ export async function newOrderHandler(req: Request, res: Response) {
     console.log("Sending payload to Rista (A):", salePayload_A);
     let resp = await postToRista(salePayload_A);
     if (resp.ok) {
+      const sendResponse: any = await sendOTP(phone, "123456");
+      if (!sendResponse) {
+        res.status(500).json({
+          status: false,
+          message: "Internal Server Error",
+        });
+        return;
+      }
+
       res.status(201).json({
         status: true,
         message: "Sale created successfully",
@@ -292,7 +349,7 @@ export async function newOrderHandler(req: Request, res: Response) {
               name: "Coupon + Loyalty",
               type: "Absolute",
               rate: 0,
-              amount: totalDiscount,   // positive
+              amount: totalDiscount, // positive
               saleAmount: totalDiscount,
               isDirectDiscount: true,
               taxes: [],
@@ -310,6 +367,15 @@ export async function newOrderHandler(req: Request, res: Response) {
     console.log("Retrying payload to Rista (B):", salePayload_B);
     resp = await postToRista(salePayload_B);
     if (resp.ok) {
+      const sendResponse: any = await sendOTP(phone, "123456");
+      if (!sendResponse) {
+        res.status(500).json({
+          status: false,
+          message: "Internal Server Error",
+        });
+        return;
+      }
+      
       res.status(201).json({
         status: true,
         message: "Sale created successfully",
@@ -329,7 +395,10 @@ export async function newOrderHandler(req: Request, res: Response) {
     }
 
     // ===== Attempt C: Line-level prorated discounts; sale-level = 0 =====
-    const proratedItems = applyLineLevelProration(payloadItemsRaw, totalDiscount);
+    const proratedItems = applyLineLevelProration(
+      payloadItemsRaw,
+      totalDiscount
+    );
     const salePayload_C = {
       ...salePayload_A,
       items: proratedItems.map(({ _computedLineGrand, ...rest }) => rest),
