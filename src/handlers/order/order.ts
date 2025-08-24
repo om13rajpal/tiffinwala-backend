@@ -6,7 +6,7 @@ import pointsModel from "../../models/points";
 import { API_KEY, BASE_URL, BRANCH, CHANNEL } from "../../config/config";
 import { generateToken } from "../../utils/generateToken";
 import axios from "axios";
-import sendOTP from "../../utils/otp";
+import { sendCoins } from "../../utils/otp";
 
 const toNum = (v: any, fallback = 0) => {
   const n = Number(v);
@@ -314,7 +314,7 @@ export async function newOrderHandler(req: Request, res: Response) {
     console.log("Sending payload to Rista (A):", salePayload_A);
     let resp = await postToRista(salePayload_A);
     if (resp.ok) {
-      const sendResponse: any = await sendOTP(phone, "123456");
+      const sendResponse: any = await sendCoins(phone, earnedPoints.toString());
       if (!sendResponse) {
         res.status(500).json({
           status: false,
@@ -367,7 +367,7 @@ export async function newOrderHandler(req: Request, res: Response) {
     console.log("Retrying payload to Rista (B):", salePayload_B);
     resp = await postToRista(salePayload_B);
     if (resp.ok) {
-      const sendResponse: any = await sendOTP(phone, "123456");
+      const sendResponse: any = await sendCoins(phone, earnedPoints.toString());
       if (!sendResponse) {
         res.status(500).json({
           status: false,
