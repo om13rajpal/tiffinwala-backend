@@ -303,7 +303,7 @@ export async function newOrderHandler(req: Request, res: Response) {
       payments,
       balanceAmount: 0,
       delivery: {
-        mode: "SelfDelivery",
+        mode: "Delivery",
         name: fullName,
         address: user.address || "",
         phoneNumber: phone,
