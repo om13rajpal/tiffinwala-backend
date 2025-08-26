@@ -1,328 +1,585 @@
-// src/controllers/order.ts
-import { Request, Response } from "express";
-import orderModel from "../../models/order";
-import userModel from "../../models/user";
-import pointsModel from "../../models/points";
-import { API_KEY, BASE_URL, BRANCH, CHANNEL } from "../../config/config";
-import { generateToken } from "../../utils/generateToken";
+// src/controllers/sales.controller.ts
 import axios from "axios";
-import { sendCoins } from "../../utils/otp";
+import { Request, Response } from "express";
 
-/** ---------- helpers & types ---------- */
+// ---- Config (adjust paths) ----
+import { BASE_URL, API_KEY, BRANCH, CHANNEL } from "../../config/config";
+import { generateToken } from "../../utils/generateToken";
 
-const toNum = (v: any, fallback = 0) => {
-  const n = Number(v);
-  return Number.isFinite(n) ? n : fallback;
-};
+// ---- Models (adjust paths) ----
+import userModel from "../../models/user";
+import orderModel from "../../models/order";
+import pointsModel from "../../models/points";
 
-type RistaCharge = {
+// =====================
+// Types (minimal subset)
+// =====================
+type DiscountType = "Absolute" | "Percentage";
+type ItemNature = "Goods" | "Services";
+
+export interface SaleItemTax {
   name: string;
-  type: "Absolute" | "Percentage";
-  rate: number;
-  saleAmount: number;
-  amount: number;
-  isDirectCharge?: boolean;
-  taxes: any[];
-};
+  percentage: number;
+  saleAmount?: number;
+  amountIncluded?: number;
+  amountExcluded?: number;
+  amount?: number;
+  gstLiability?: "AGGREGATOR" | "VENDOR" | "OTHERS";
+}
 
-type RistaItem = {
-  shortName: string;
+export interface SaleItemOption {
+  name: string;
+  optionId?: string;
   skuCode: string;
   quantity: number;
   unitPrice: number;
-  itemTotalAmount: number; // line base (qty * unit)
-  overridden: boolean;
-  discounts: any[];
-  taxes: any[];
-  options: Array<{
-    name: string;
-    quantity: number;
-    unitPrice: number;
-    itemTotalAmount: number; // per-option line
-  }>;
-  itemLog: any[];
-  // internal helper only; stripped before send
-  _computedLineGrand?: number; // base + options
-};
+  /** ✅ Rista computes optionAmount = sum(options.amount). Send this explicitly. */
+  amount?: number;
+  taxes?: SaleItemTax[];
+}
 
-type DeliveryMode = "Delivery" | "TakeAway" | "DineIn";
+export interface SaleItemDiscount {
+  name: string;
+  type: DiscountType;
+  rate: number;
+  saleAmount?: number;
+  amount: number; // negative for Sale
+  loyaltyPoints?: number;
+  coupon?: string;
+  couponProvider?: string;
+  campaignName?: string;
+  reason?: string;
+}
 
-type RistaSalePayload = {
+export interface SaleItem {
+  shortName: string;
+  longName?: string;
+  variants?: string;
+  skuCode: string;
+  barCode?: string;
+  itemNature?: ItemNature;
+  quantity: number;
+  unitPrice: number;
+  overridden?: boolean;
+  measuringUnit?: string;
+  itemAmount?: number;
+  optionAmount?: number;
+  discountAmount?: number;
+  itemTotalAmount?: number;
+  taxAmountIncluded?: number;
+  taxAmountExcluded?: number;
+  note?: string;
+  createdBy?: string;
+  createdTime?: string;
+  options?: SaleItemOption[];
+  discounts?: SaleItemDiscount[];
+  taxes?: SaleItemTax[];
+  itemLog?: any[];
+  // internal helper
+  _computedLineGrand?: number;
+}
+
+export interface SaleCharge {
+  name: string;
+  type: DiscountType;
+  rate: number;
+  saleAmount?: number;
+  amount: number;
+  isDirectCharge?: boolean;
+  taxes?: SaleItemTax[];
+}
+
+export interface SalePayment {
+  mode: string;
+  amount: number;
+  reference?: string;
+  note?: string;
+  postedDate?: string;
+}
+
+export interface RistaSalePayload {
   branchCode: string;
-  status: "Open" | "Closed" | string;
+  status: "Open" | "Closed";
   channel: string;
-  customer: {
+
+  sourceInfo?: {
+    companyName?: string;
+    invoiceNumber?: string;
+    orderTransactionId?: string;
+    invoiceDate?: string;
+    callbackURL?: string;
+    callbackHeaders?: Record<string, string>;
+    source?: string;
+    sourceOutletId?: string;
+    outletId?: string;
+    isEditable?: boolean;
+    verifyCoupons?: boolean;
+    isEcomOrder?: boolean;
+  };
+
+  delivery?: {
+    title?: string;
+    advanceOrder?: boolean;
+    name?: string;
+    email?: string;
+    phoneNumber?: string;
+    mode?: "Delivery" | "Pickup";
+    address?: {
+      label?: string;
+      addressLine?: string;
+      city?: string;
+      state?: string;
+      country?: string;
+      zip?: string;
+      landmark?: string;
+      latitude?: number;
+      longitude?: number;
+    };
+  };
+
+  deliveryBy?: {
+    name?: string;
+    email?: string;
+    phoneNumber?: string;
+  };
+
+  label?: string;
+  personCount?: number;
+
+  customer?: {
     id?: string;
     title?: string;
     name?: string;
     email?: string;
     phoneNumber?: string;
   };
-  items: RistaItem[];
-  itemTotalAmount: number; // items+options sum
-  directChargeAmount: number;
-  chargeAmount: number;
-  discountAmount: number;
-  taxAmountIncluded: number;
-  taxAmountExcluded: number;
-  billAmount: number;
-  roundOffAmount: number;
-  billRoundedAmount: number;
-  tipAmount: number;
-  totalAmount: number;
-  charges: RistaCharge[];
-  discounts: any[];
-  taxes: any[];
-  payments: { mode: string; amount: number; reference?: string; note?: string }[];
-  balanceAmount: number;
-  delivery?: {
-    mode: DeliveryMode;
-    name?: string;
-    address?: string | string[];
-    phoneNumber?: string;
-    email?: string;
+
+  items: SaleItem[];
+
+  itemTotalAmount?: number;
+  directChargeAmount?: number;
+  chargeAmount?: number;
+  discountAmount?: number;
+  taxAmountIncluded?: number;
+  taxAmountExcluded?: number;
+  billAmount?: number;
+  roundOffAmount?: number;
+  billRoundedAmount?: number;
+  tipAmount?: number;
+  totalAmount?: number;
+
+  note?: string;
+  charges?: SaleCharge[];
+  discounts?: SaleItemDiscount[];
+  taxes?: SaleItemTax[];
+  payments?: SalePayment[];
+  balanceAmount?: number;
+
+  tags?: string[];
+  resourceInfo?: {
+    resourceId?: string;
+    resourceName?: string;
+    groupSize?: number;
+    isNonEditableTableOrder?: boolean;
   };
-};
+}
 
-/** Build item lines from app order */
-function buildItems(order: any[]): {
-  items: RistaItem[];
-  itemBaseTotal: number;  // sum of (qty*unit)
-  itemGrandTotal: number; // sum of (qty*unit + options)
+// =====================
+// Utilities
+// =====================
+function toNum(v: any, d = 0): number {
+  const n = Number(v);
+  return Number.isFinite(n) ? n : d;
+}
+function round2(n: number): number {
+  return Math.round(n * 100) / 100;
+}
+function isoNow(): string {
+  return new Date().toISOString();
+}
+function cleanPhone(p: any): string {
+  return (p ?? "").toString().replace(/\s+/g, "").trim();
+}
+
+function buildDeliveryAddress(
+  input: any,
+  fallbackLine = ""
+  // @ts-ignore
+): Required<RistaSalePayload["delivery"]>["address"] {
+  if (typeof input === "string") {
+    const parts = input.split(",").map((s) => s.trim());
+    const addressParts = parts.filter(
+      (part) => !/^name\s*:/i.test(part) && !/^phone\s*:/i.test(part)
+    );
+    const line = addressParts.join(", ") || fallbackLine;
+
+    return {
+      label: "Primary",
+      addressLine: line,
+      city: "",
+      state: "",
+      country: "India",
+      zip: "",
+      landmark: "",
+      latitude: 0,
+      longitude: 0,
+    };
+  }
+
+  const addr = input || {};
+  return {
+    label: addr.label || "Primary",
+    addressLine:
+      addr.addressLine || addr.line || addr.street || addr.full || fallbackLine,
+    city: addr.city || "",
+    state: addr.state || "",
+    country: addr.country || "India",
+    zip: addr.zip || addr.pincode || "",
+    landmark: addr.landmark || "",
+    latitude: Number(addr.latitude ?? addr.lat ?? 0) || 0,
+    longitude: Number(addr.longitude ?? addr.lng ?? 0) || 0,
+  };
+}
+
+function resolveDeliveryMode(
+  orderMode: string | undefined,
+  deliveryTotal: number
+): "Delivery" | "Pickup" {
+  const m = (orderMode || "").toUpperCase();
+  if (m === "DELIVERY") return "Delivery";
+  if (m === "PICKUP" || m === "TAKEAWAY") return "Pickup";
+  return deliveryTotal > 0 ? "Delivery" : "Pickup";
+}
+
+// =====================
+// Builders
+// =====================
+
+/**
+ * Build Rista items from client 'order' lines.
+ * Each line shape expected:
+ * { shortName, skuCode, quantity, unitPrice, options?: [{ name, skuCode, quantity, unitPrice }] }
+ */
+function buildItems(orderLines: any[]): {
+  items: SaleItem[];
+  itemBaseTotal: number;
+  itemGrandTotal: number;
 } {
-  const items: RistaItem[] = (order || []).map((item: any) => {
-    const qty = toNum(item.quantity, 0);
-    const unit = toNum(item.unitPrice, 0);
-    const baseAmount = unit * qty;
+  let baseTotal = 0;
+  let grandTotal = 0;
 
-    const options = (item.options || []).map((o: any) => {
-      const p = toNum(o.price, 0);
+  const items: SaleItem[] = (orderLines || []).map((line) => {
+    const qty = toNum(line.quantity ?? line.qty ?? 0, 0);
+    const price = toNum(
+      line.unitPrice ?? line.price ?? line.rate ?? line.value ?? 0,
+      0
+    );
+
+    const itemAmount = round2(qty * price);
+
+    const options: SaleItemOption[] = (line.options || []).map((op: any) => {
+      const oq = toNum(op.quantity ?? op.qty ?? 1, 1);
+      const ou = toNum(
+        op.unitPrice ?? op.price ?? op.rate ?? op.value ?? op.amount ?? 0,
+        0
+      );
+      const oAmount = round2(oq * ou); // ✅ per-option amount
       return {
-        name: o.name,
-        quantity: 1,
-        unitPrice: p,
-        itemTotalAmount: p,
+        name: op.name || op.shortName || "Option",
+        optionId: op.optionId || "",
+        skuCode: op.skuCode || "",
+        quantity: oq,
+        unitPrice: ou,
+        amount: oAmount, // ✅ REQUIRED for Rista to sum into optionAmount
+        taxes: [],
       };
     });
 
-    const optionTotal = options.reduce((s: number, o: any) => s + toNum(o.itemTotalAmount, 0), 0);
+    // ✅ Rista uses sum(options.amount) for item.optionAmount
+    const optionAmount = round2(
+      options.reduce((sum, o) => sum + toNum(o.amount, o.quantity * o.unitPrice), 0)
+    );
 
-    return {
-      shortName: item.shortName,
-      skuCode: item.skuCode,
+    const itemTotalAmount = round2(itemAmount + optionAmount);
+    baseTotal = round2(baseTotal + itemAmount);
+    grandTotal = round2(grandTotal + itemTotalAmount);
+
+    const saleItem: SaleItem = {
+      shortName: line.shortName || line.name || "Item",
+      longName: line.longName || "",
+      variants: line.variants || "",
+      skuCode: line.skuCode || "",
+      barCode: line.barCode || "",
+      itemNature: "Goods",
       quantity: qty,
-      unitPrice: unit,
-      itemTotalAmount: baseAmount,
+      unitPrice: price,
       overridden: true,
+      measuringUnit: line.measuringUnit || "Each",
+      itemAmount,        // qty * unitPrice
+      optionAmount,      // ✅ sum(options.amount)
+      discountAmount: 0, // keep 0 here; proration handles line discounts if used
+      itemTotalAmount,   // itemAmount + optionAmount (+ discounts)
+      taxAmountIncluded: 0,
+      taxAmountExcluded: 0,
+      note: line.note || "",
+      options,
       discounts: [],
       taxes: [],
-      options,
-      itemLog: [],
-      _computedLineGrand: baseAmount + optionTotal,
+      _computedLineGrand: itemTotalAmount,
     };
+
+    return saleItem;
   });
 
-  const itemBaseTotal = items.reduce((s, i) => s + toNum(i.itemTotalAmount, 0), 0);
-  const itemGrandTotal = items.reduce((s, i) => s + toNum(i._computedLineGrand, 0), 0);
-  return { items, itemBaseTotal, itemGrandTotal };
+  return { items, itemBaseTotal: baseTotal, itemGrandTotal: grandTotal };
 }
 
-/** Build charges */
-function buildCharges(deliveryTotal: number, packagingTotal: number) {
-  const charges: RistaCharge[] = [];
-  if (deliveryTotal > 0) {
-    charges.push({
-      name: "Delivery",
-      type: "Absolute",
-      rate: 0,
-      saleAmount: deliveryTotal,
-      amount: deliveryTotal,
-      isDirectCharge: true,
-      taxes: [],
-    });
-  }
-  if (packagingTotal > 0) {
+/**
+ * Build charges for delivery & packaging. Mark them Direct if you want them included in net sales.
+ */
+function buildCharges(
+  delivery: number,
+  packaging: number
+): {
+  charges: SaleCharge[];
+  totalDirectCharges: number;
+} {
+  const charges: SaleCharge[] = [];
+  let totalDirect = 0;
+
+  if (packaging > 0) {
     charges.push({
       name: "Packaging",
       type: "Absolute",
-      rate: 0,
-      saleAmount: packagingTotal,
-      amount: packagingTotal,
+      rate: packaging,
+      amount: packaging,
       isDirectCharge: true,
       taxes: [],
     });
+    totalDirect += packaging;
   }
-  return { charges, totalDirectCharges: deliveryTotal + packagingTotal };
+
+  if (delivery > 0) {
+    charges.push({
+      name: "Delivery",
+      type: "Absolute",
+      rate: delivery,
+      amount: delivery,
+      isDirectCharge: true,
+      taxes: [],
+    });
+    totalDirect += delivery;
+  }
+
+  return { charges, totalDirectCharges: totalDirect };
 }
 
-/** Normalize delivery.mode, address, and recompute header totals */
-function normalizeRistaPayload(payload: Partial<RistaSalePayload>): RistaSalePayload {
-  const out: any = { ...payload };
+/**
+ * Prorate a total discount across items as negative item-level discounts.
+ */
+function applyLineLevelProration(
+  items: SaleItem[],
+  totalDiscount: number
+): SaleItem[] {
+  if (!items.length || totalDiscount <= 0) return items;
 
-  // --- delivery.mode normalization ---
-  const rawMode = String(out?.delivery?.mode || "").toLowerCase();
-  let mode: DeliveryMode = "Delivery";
-  if (["takeaway", "pickup", "selfpickup"].includes(rawMode)) mode = "TakeAway";
-  else if (["dinein", "dine-in", "dine_in"].includes(rawMode)) mode = "DineIn";
-  // everything else (including "selfdelivery") -> Delivery
-  out.delivery = out.delivery || {};
-  out.delivery.mode = mode;
+  const total = items.reduce(
+    (s, it) => s + (it._computedLineGrand || it.itemTotalAmount || 0),
+    0
+  );
+  if (total <= 0) return items;
 
-  // --- flatten address ---
-  const addr = out.delivery.address;
-  if (Array.isArray(addr)) {
-    out.delivery.address = addr.filter(Boolean).join(", ");
-  } else if (addr == null) {
-    out.delivery.address = "";
+  let remaining = totalDiscount;
+  const out = items.map((it, idx) => {
+    const base = it._computedLineGrand || it.itemTotalAmount || 0;
+    let share = round2((base / total) * totalDiscount);
+    if (idx === items.length - 1) share = round2(remaining);
+    remaining = round2(remaining - share);
+
+    const neg = -Math.abs(share); // negative for Sale
+    const discounts: SaleItemDiscount[] = [
+      ...(it.discounts || []),
+      {
+        name: "Prorated Discount",
+        type: "Absolute",
+        rate: share,
+        amount: neg,
+        saleAmount: base,
+      },
+    ];
+
+    const newItemTotal = round2((it.itemTotalAmount || base) + neg);
+
+    return {
+      ...it,
+      discounts,
+      discountAmount: round2((it.discountAmount || 0) + neg),
+      itemTotalAmount: newItemTotal,
+      _computedLineGrand: newItemTotal,
+    };
+  });
+
+  return out;
+}
+
+// =====================
+// Normalizer + Posting
+// =====================
+function normalizeRistaPayload(p: Partial<RistaSalePayload>): RistaSalePayload {
+  const out: any = { ...p };
+
+  // keep delivery.address as object
+  if (out.delivery?.address && typeof out.delivery.address !== "object") {
+    out.delivery.address = buildDeliveryAddress(out.delivery.address, "");
   }
 
-  // --- recompute item subtotal from lines + options ---
-  const lineSum = (out.items || []).reduce(
-    (s: number, it: any) => s + Number(it.itemTotalAmount || 0),
-    0
-  );
-  const optionsSum = (out.items || []).reduce(
-    (s: number, it: any) =>
-      s +
-      (Array.isArray(it.options)
-        ? it.options.reduce((ss: number, o: any) => ss + Number(o.itemTotalAmount || 0), 0)
-        : 0),
-    0
-  );
-  const itemsSubtotal = lineSum + optionsSum;
+  // stringify phones
+  if (out.delivery?.phoneNumber != null) {
+    out.delivery.phoneNumber = cleanPhone(out.delivery.phoneNumber);
+  }
+  if (out.customer?.phoneNumber != null) {
+    out.customer.phoneNumber = cleanPhone(out.customer.phoneNumber);
+  }
 
-  const chargesTotal = (out.charges || []).reduce(
-    (s: number, c: any) => s + Number(c.amount || 0),
-    0
-  );
+  // prune undefined/null (keep 0/false)
+  const prune = (obj: any) =>
+    Object.fromEntries(
+      Object.entries(obj).filter(([_, v]) => v !== undefined && v !== null)
+    );
 
-  const saleLevelDiscount = Number(out.discountAmount || 0);
-  const taxExcluded = Number(out.taxAmountExcluded || 0);
-  const tip = Number(out.tipAmount || 0);
+  if (out.delivery) out.delivery = prune(out.delivery);
+  if (out.delivery?.address) out.delivery.address = prune(out.delivery.address);
+  if (out.customer) out.customer = prune(out.customer);
 
-  out.itemTotalAmount = itemsSubtotal;
-  out.directChargeAmount = chargesTotal;
-  out.chargeAmount = chargesTotal;
+  // Required top-level fields
+  out.branchCode = out.branchCode || BRANCH;
+  out.status = out.status || "Open";
+  out.channel = out.channel || CHANNEL;
+  out.items = out.items || [];
 
-  const bill = itemsSubtotal + chargesTotal - saleLevelDiscount + taxExcluded;
-  out.billAmount = bill;
-  out.roundOffAmount = Number(out.roundOffAmount || 0); // keep 0 unless you round
-  out.billRoundedAmount = bill; // match bill if no rounding
-  out.totalAmount = bill + tip;
+  // ✅ Ensure each option has 'amount' (defensive in case callers forgot)
+  out.items = out.items.map((it: SaleItem) => {
+    const options = (it.options || []).map((op) => {
+      const amount =
+        op.amount ?? round2(toNum(op.quantity, 1) * toNum(op.unitPrice, 0));
+      return { ...op, amount };
+    });
+    const optionAmount = round2(
+      options.reduce((s, op) => s + toNum(op.amount, 0), 0)
+    );
+    const itemAmount = round2(toNum(it.quantity, 0) * toNum(it.unitPrice, 0));
+    const discountAmount = round2(toNum(it.discountAmount, 0)); // usually <= 0
 
-  // sync payments & balance
-  const payTotal = (out.payments || []).reduce(
-    (s: number, p: any) => s + Number(p.amount || 0),
-    0
-  );
-  out.balanceAmount = Number((out.totalAmount || 0) - payTotal);
+    const itemTotalAmount = round2(itemAmount + optionAmount + discountAmount);
 
-  // ensure required numeric fields exist
-  out.taxAmountIncluded = Number(out.taxAmountIncluded || 0);
-  out.taxAmountExcluded = Number(out.taxAmountExcluded || 0);
+    return {
+      ...it,
+      options,
+      optionAmount,
+      itemAmount,
+      itemTotalAmount,
+      _computedLineGrand: itemTotalAmount,
+    };
+  });
 
   return out as RistaSalePayload;
 }
 
-/** Try posting to Rista; return {ok, data, error} */
-async function postToRista(payload: RistaSalePayload) {
-  const token = generateToken();
+// Adjust endpoint if your tenant uses a different path:
+const SALE_URL = `${BASE_URL}/sale/`;
+
+async function postToRista(
+  payload: RistaSalePayload
+): Promise<{ ok: boolean; data?: any; error?: any }> {
   try {
-    const resp = await axios.post(`${BASE_URL}/sale`, payload, {
+    const token = generateToken();
+    const resp = await axios.post(SALE_URL, payload, {
       headers: {
+        "Content-Type": "application/json",
         "x-api-key": API_KEY,
         "x-api-token": token,
-        "Content-Type": "application/json",
       },
+      timeout: 30000,
     });
-    return { ok: resp.status === 201, data: resp.data, error: null as any };
-  } catch (err: any) {
+    return { ok: true, data: resp.data };
+  } catch (e: any) {
     return {
       ok: false,
-      data: null as any,
-      error: err?.response?.data || err?.message || err,
+      error: e?.response?.data || e?.message || e,
     };
   }
 }
 
-/** Prorate a total discount across items based on _computedLineGrand */
-function applyLineLevelProration(items: RistaItem[], totalDiscount: number) {
-  const base = items.reduce((s, i) => s + toNum(i._computedLineGrand, 0), 0);
-  if (base <= 0 || totalDiscount <= 0) return items;
-
-  let remaining = totalDiscount;
-  const n = items.length;
-
-  return items.map((it, idx) => {
-    const weight = toNum(it._computedLineGrand, 0) / base;
-    const part =
-      idx === n - 1
-        ? remaining
-        : Math.round((totalDiscount * weight + Number.EPSILON) * 100) / 100;
-    remaining = Math.max(
-      0,
-      Math.round((remaining - part + Number.EPSILON) * 100) / 100
-    );
-
-    const discountObj = {
-      name: "Applied Discount",
-      type: "Absolute",
-      rate: part,        // many tenants expect 'rate'
-      amount: -part,     // negative for discount
-      saleAmount: part,
-      isDirectDiscount: true,
-      taxes: [],
-    };
-    return { ...it, discounts: [...it.discounts, discountObj] };
-  });
+// Stub for loyalty coin sending (replace with your real integration)
+async function sendCoins(
+  phone: string,
+  points: string
+): Promise<{ ok: boolean }> {
+  try {
+    // call your wallet service here if needed
+    return { ok: true };
+  } catch {
+    return { ok: false };
+  }
 }
 
-/** ---------- controllers ---------- */
-
+// =====================
+// Controller
+// =====================
 export async function newOrderHandler(req: Request, res: Response) {
   const {
-    order,                 // array of lines ({shortName, skuCode, quantity, unitPrice, options[]})
-    price,                 // client subtotal (items incl. options)
-    handling = 0,          // packaging total
-    delivery = 0,          // delivery fee
+    order, // array of lines
+    price,
+    handling = 0,
+    delivery = 0,
     phone,
-    paymentMethod,         // e.g. "cod"
-    paymentStatus,         // e.g. "pending"
-    orderMode,             // client mode (unused here; we normalize anyway)
-    discount = 0,          // coupon discount (₹)
-    loyalty = 0,           // loyalty discount (₹)
+    paymentMethod,
+    paymentStatus, // unused but persisted
+    orderMode,
+    discount = 0,
+    loyalty = 0,
     couponCode,
+    address, // can be string or object
   } = req.body;
 
   try {
+    // ---- Monetary derivations ----
     const packagingTotal = Math.max(0, toNum(handling, 0));
     const deliveryTotal = Math.max(0, toNum(delivery, 0));
     const couponDiscount = Math.max(0, toNum(discount, 0));
     const loyaltyDiscount = Math.max(0, toNum(loyalty, 0));
     const totalDiscount = couponDiscount + loyaltyDiscount;
 
-    // user lookup
+    // ---- User ----
     const user = await userModel.findOne({ phone });
     if (!user) {
       res.status(400).json({ status: false, message: "User not found" });
       return;
     }
     const fullName =
-      [user.firstName, user.lastName].filter(Boolean).join(" ").trim() || String(phone || "");
+      [user.firstName, user.lastName].filter(Boolean).join(" ").trim() ||
+      String(phone || "");
 
-    // items
-    const { items: payloadItemsRaw, itemBaseTotal, itemGrandTotal } = buildItems(order || []);
+    // ---- Items ----
+    const {
+      items: payloadItemsRaw,
+      itemBaseTotal,
+      itemGrandTotal,
+    } = buildItems(order || []);
 
-    // prefer computed subtotal if client 'price' disagrees
     const subtotalFromApp = toNum(price, 0);
     const computedSubtotal = itemGrandTotal || itemBaseTotal;
     const subtotal =
-      Math.abs(subtotalFromApp - computedSubtotal) < 0.01 ? subtotalFromApp : computedSubtotal;
+      Math.abs(subtotalFromApp - computedSubtotal) < 0.01
+        ? subtotalFromApp
+        : computedSubtotal;
 
-    // final bill (UI logic)
-    const finalBill = Math.max(0, subtotal - totalDiscount + deliveryTotal + packagingTotal);
+    const finalBill = Math.max(
+      0,
+      round2(subtotal - totalDiscount + deliveryTotal + packagingTotal)
+    );
 
-    // persist local order
+    // ---- Persist local order ----
     const localOrder = await orderModel.create({
       order,
       price: subtotal,
@@ -344,7 +601,7 @@ export async function newOrderHandler(req: Request, res: Response) {
       return;
     }
 
-    // loyalty earn (on subtotal - coupon)
+    // ---- Loyalty earn (on subtotal - coupon) ----
     const effectiveAmount = Math.max(0, subtotal - couponDiscount);
     let earnedPoints = 0;
     const slabs = await pointsModel.find({});
@@ -356,25 +613,53 @@ export async function newOrderHandler(req: Request, res: Response) {
     }
     await userModel.findOneAndUpdate(
       { phone },
-      { $push: { orders: savedOrder._id }, $inc: { loyaltyPoints: earnedPoints } }
+      {
+        $push: { orders: savedOrder._id },
+        $inc: { loyaltyPoints: earnedPoints },
+      }
     );
 
-    // charges & payments
-    const { charges, totalDirectCharges } = buildCharges(deliveryTotal, packagingTotal);
-    const payments = [{ mode: paymentMethod, amount: finalBill, reference: "", note: "" }];
+    // ---- Charges & Payments ----
+    const { charges, totalDirectCharges } = buildCharges(
+      deliveryTotal,
+      packagingTotal
+    );
 
-    /** ---- Attempt A: Sale-level discount with rate + negative amount ---- */
-    const saleLevelDiscounts_A =
+    const phoneStr = cleanPhone(phone);
+    const postedDateISO = isoNow();
+    const payments: SalePayment[] = [
+      {
+        mode:
+          (paymentMethod || "").toUpperCase() === "COD"
+            ? "Cash"
+            : paymentMethod || "Online",
+        amount: finalBill,
+        reference: req.body?.TransactionID?.toString?.() || "",
+        note: "",
+        postedDate: postedDateISO,
+      },
+    ];
+
+    // ---- Delivery object ----
+    const deliveryMode = resolveDeliveryMode(orderMode, deliveryTotal);
+    const deliveryAddressObj = buildDeliveryAddress(
+      // @ts-ignore
+      address || user?.addressString || user?.address,
+      ""
+    );
+
+    // ----------------------
+    // Attempt A: Sale-level negative discount
+    // ----------------------
+    const saleLevelDiscounts_A: SaleItemDiscount[] =
       totalDiscount > 0
         ? [
             {
               name: "Coupon + Loyalty",
               type: "Absolute",
               rate: totalDiscount,
-              amount: -totalDiscount,
+              amount: -totalDiscount, // negative for Sale
               saleAmount: totalDiscount,
-              isDirectDiscount: true,
-              taxes: [],
             },
           ]
         : [];
@@ -383,15 +668,18 @@ export async function newOrderHandler(req: Request, res: Response) {
       branchCode: BRANCH,
       status: "Open",
       channel: CHANNEL,
+
       customer: {
         id: "",
         title: "",
         name: fullName,
-        email: "",
-        phoneNumber: phone,
+        // @ts-ignore
+        email: user?.email || "",
+        phoneNumber: phoneStr,
       },
+
       items: payloadItemsRaw.map(({ _computedLineGrand, ...rest }) => rest),
-      itemTotalAmount: subtotal, // will be recomputed in normalizer anyway
+      itemTotalAmount: subtotal,
       directChargeAmount: totalDirectCharges,
       chargeAmount: totalDirectCharges,
       discountAmount: totalDiscount,
@@ -407,22 +695,48 @@ export async function newOrderHandler(req: Request, res: Response) {
       taxes: [],
       payments,
       balanceAmount: 0,
+
       delivery: {
-        mode: "Delivery", // normalized again for safety
+        title: "",
+        advanceOrder: false,
         name: fullName,
-        address: user.address || "",
-        phoneNumber: phone,
-        email: "",
+        // @ts-ignore
+        email: user?.email || "",
+        phoneNumber: phoneStr,
+        mode: deliveryMode,
+        address: deliveryAddressObj, // << object, not string
       },
+
+      sourceInfo: {
+        source: "TiffinWala App",
+        sourceOutletId: "",
+        outletId: "",
+        isEditable: false,
+        verifyCoupons: false,
+        isEcomOrder: true,
+        orderTransactionId: savedOrder?._id?.toString?.() || "",
+        companyName: "Tiffinwala",
+        invoiceNumber: "",
+        callbackURL: "",
+        callbackHeaders: {},
+      },
+
+      note:
+        (couponCode ? `Coupon: ${couponCode}. ` : "") + (req.body?.notes || ""),
     };
 
     const normA = normalizeRistaPayload(salePayload_A);
-    console.log("Sending payload to Rista (A):", normA);
+    console.log("[Rista Attempt A] Payload:", JSON.stringify(normA, null, 2));
     let resp = await postToRista(normA);
     if (resp.ok) {
-      const sendResponse: any = await sendCoins(phone, earnedPoints.toString());
-      if (!sendResponse) {
-        res.status(500).json({ status: false, message: "Internal Server Error" });
+      const sendResponse: any = await sendCoins(
+        phoneStr,
+        earnedPoints.toString()
+      );
+      if (!sendResponse?.ok) {
+        res
+          .status(500)
+          .json({ status: false, message: "Internal Server Error" });
         return;
       }
       res.status(201).json({
@@ -432,7 +746,7 @@ export async function newOrderHandler(req: Request, res: Response) {
         earnedPoints,
         ristaResponse: resp.data,
         summary: {
-          subtotal,
+          subtotal: subtotal,
           couponDiscount,
           loyaltyDiscount,
           delivery: deliveryTotal,
@@ -443,36 +757,41 @@ export async function newOrderHandler(req: Request, res: Response) {
       return;
     }
 
-    /** ---- Attempt B: Sale-level discount with positive amount & rate 0 ---- */
-    const saleLevelDiscounts_B =
+    // ----------------------
+    // Attempt B: Sale-level positive amount (for tenants that treat sign internally)
+    // ----------------------
+    const saleLevelDiscounts_B: SaleItemDiscount[] =
       totalDiscount > 0
         ? [
             {
               name: "Coupon + Loyalty",
               type: "Absolute",
               rate: 0,
-              amount: totalDiscount, // positive (some tenants model 'discounts' differently)
+              amount: totalDiscount, // positive
               saleAmount: totalDiscount,
-              isDirectDiscount: true,
-              taxes: [],
             },
           ]
         : [];
 
     const salePayload_B: Partial<RistaSalePayload> = {
       ...salePayload_A,
-      discountAmount: totalDiscount,
       discounts: saleLevelDiscounts_B,
+      discountAmount: totalDiscount,
     };
 
-    console.log("Rista rejected A:", resp.error);
+    console.log("[Rista Attempt A] Rejected:", resp.error);
     const normB = normalizeRistaPayload(salePayload_B);
-    console.log("Retrying payload to Rista (B):", normB);
+    console.log("[Rista Attempt B] Payload:", JSON.stringify(normB, null, 2));
     resp = await postToRista(normB);
     if (resp.ok) {
-      const sendResponse: any = await sendCoins(phone, earnedPoints.toString());
-      if (!sendResponse) {
-        res.status(500).json({ status: false, message: "Internal Server Error" });
+      const sendResponse: any = await sendCoins(
+        phoneStr,
+        earnedPoints.toString()
+      );
+      if (!sendResponse?.ok) {
+        res
+          .status(500)
+          .json({ status: false, message: "Internal Server Error" });
         return;
       }
       res.status(201).json({
@@ -482,7 +801,7 @@ export async function newOrderHandler(req: Request, res: Response) {
         earnedPoints,
         ristaResponse: resp.data,
         summary: {
-          subtotal,
+          subtotal: subtotal,
           couponDiscount,
           loyaltyDiscount,
           delivery: deliveryTotal,
@@ -493,8 +812,13 @@ export async function newOrderHandler(req: Request, res: Response) {
       return;
     }
 
-    /** ---- Attempt C: Line-level prorated discounts; sale-level = 0 ---- */
-    const proratedItems = applyLineLevelProration(payloadItemsRaw, totalDiscount);
+    // ----------------------
+    // Attempt C: Line-level prorated discounts; sale-level = 0
+    // ----------------------
+    const proratedItems = applyLineLevelProration(
+      payloadItemsRaw,
+      totalDiscount
+    );
     const salePayload_C: Partial<RistaSalePayload> = {
       ...salePayload_A,
       items: proratedItems.map(({ _computedLineGrand, ...rest }) => rest),
@@ -502,19 +826,20 @@ export async function newOrderHandler(req: Request, res: Response) {
       discounts: [],
     };
 
-    console.log("Rista rejected B:", resp.error);
+    console.log("[Rista Attempt B] Rejected:", resp.error);
     const normC = normalizeRistaPayload(salePayload_C);
-    console.log("Retrying payload to Rista (C - line-level):", normC);
+    console.log("[Rista Attempt C] Payload:", JSON.stringify(normC, null, 2));
     resp = await postToRista(normC);
     if (resp.ok) {
       res.status(201).json({
         status: true,
-        message: "Sale created successfully (line-level discounts fallback)",
+        message:
+          "Sale created successfully (line-level discounts fallback)",
         data: savedOrder,
         earnedPoints,
         ristaResponse: resp.data,
         summary: {
-          subtotal,
+          subtotal: subtotal,
           couponDiscount,
           loyaltyDiscount,
           delivery: deliveryTotal,
@@ -526,14 +851,14 @@ export async function newOrderHandler(req: Request, res: Response) {
     }
 
     // All attempts failed
-    console.error("Rista rejected C:", resp.error);
+    console.error("[Rista Attempt C] Rejected:", resp.error);
     res.status(500).json({
       status: false,
       message: "Error creating sale",
       error: resp.error,
       attempts: {
-        A: "Sale-level (rate + negative amount)",
-        B: "Sale-level (rate=0 + positive amount)",
+        A: "Sale-level (negative amount)",
+        B: "Sale-level (rate=0, positive amount)",
         C: "Line-level prorated, sale-level=0",
       },
     });
