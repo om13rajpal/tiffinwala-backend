@@ -1,4 +1,3 @@
-// src/controllers/sales.controller.ts
 import axios from "axios";
 import { Request, Response } from "express";
 
@@ -10,6 +9,7 @@ import { generateToken } from "../../utils/generateToken";
 import userModel from "../../models/user";
 import orderModel from "../../models/order";
 import pointsModel from "../../models/points";
+import { sendCoins } from "../../utils/otp";
 
 // =====================
 // Types (minimal subset)
@@ -119,7 +119,6 @@ export interface RistaSalePayload {
 
   delivery?: {
     title?: string;
-    advanceOrder?: boolean;
     name?: string;
     email?: string;
     phoneNumber?: string;
@@ -258,7 +257,8 @@ function resolveDeliveryMode(
 /**
  * Build Rista items from client 'order' lines.
  * Each line shape expected:
- * { shortName, skuCode, quantity, unitPrice, options?: [{ name, skuCode, quantity, unitPrice }] }
+ * { shortName, skuCode, quantity, unitPrice, options?: [{ name, skuCode, quantity, unitPrice, amount }] }
+ * NOTE: Client now sends discounted unitPrice (after BOGO), and option.amount.
  */
 function buildItems(orderLines: any[]): {
   items: SaleItem[];
@@ -283,7 +283,9 @@ function buildItems(orderLines: any[]): {
         op.unitPrice ?? op.price ?? op.rate ?? op.value ?? op.amount ?? 0,
         0
       );
-      const oAmount = round2(oq * ou); // ✅ per-option amount
+      const oAmount = round2(
+        toNum(op.amount, oq * ou) // prefer explicit amount, else compute
+      );
       return {
         name: op.name || op.shortName || "Option",
         optionId: op.optionId || "",
@@ -312,11 +314,11 @@ function buildItems(orderLines: any[]): {
       barCode: line.barCode || "",
       itemNature: "Goods",
       quantity: qty,
-      unitPrice: price,
+      unitPrice: price, // ✅ discounted unit from client (after BOGO)
       overridden: true,
       measuringUnit: line.measuringUnit || "Each",
       itemAmount,        // qty * unitPrice
-      optionAmount,      // ✅ sum(options.amount)
+      optionAmount,      // sum(options.amount)
       discountAmount: 0, // keep 0 here; proration handles line discounts if used
       itemTotalAmount,   // itemAmount + optionAmount (+ discounts)
       taxAmountIncluded: 0,
@@ -457,19 +459,16 @@ function normalizeRistaPayload(p: Partial<RistaSalePayload>): RistaSalePayload {
   out.channel = out.channel || CHANNEL;
   out.items = out.items || [];
 
-  // ✅ Ensure each option has 'amount' (defensive in case callers forgot)
+  // ✅ Ensure each option has 'amount' (defensive)
   out.items = out.items.map((it: SaleItem) => {
     const options = (it.options || []).map((op) => {
       const amount =
         op.amount ?? round2(toNum(op.quantity, 1) * toNum(op.unitPrice, 0));
       return { ...op, amount };
     });
-    const optionAmount = round2(
-      options.reduce((s, op) => s + toNum(op.amount, 0), 0)
-    );
+    const optionAmount = round2(options.reduce((s, op) => s + toNum(op.amount, 0), 0));
     const itemAmount = round2(toNum(it.quantity, 0) * toNum(it.unitPrice, 0));
     const discountAmount = round2(toNum(it.discountAmount, 0)); // usually <= 0
-
     const itemTotalAmount = round2(itemAmount + optionAmount + discountAmount);
 
     return {
@@ -510,36 +509,26 @@ async function postToRista(
   }
 }
 
-// Stub for loyalty coin sending (replace with your real integration)
-async function sendCoins(
-  phone: string,
-  points: string
-): Promise<{ ok: boolean }> {
-  try {
-    // call your wallet service here if needed
-    return { ok: true };
-  } catch {
-    return { ok: false };
-  }
-}
+// Stub for loyalty coin sending (replace with your real integration
 
 // =====================
 // Controller
 // =====================
 export async function newOrderHandler(req: Request, res: Response) {
   const {
-    order, // array of lines
-    price,
+    order, // array of lines (client now sends discounted unitPrice + option.amount)
+    price, // discounted subtotal (after BOGO)
     handling = 0,
     delivery = 0,
     phone,
     paymentMethod,
-    paymentStatus, // unused but persisted
+    paymentStatus,
     orderMode,
-    discount = 0,
-    loyalty = 0,
+    discount = 0, // absolute rupees (coupon)
+    loyalty = 0,  // absolute rupees (loyalty)
     couponCode,
-    address, // can be string or object
+    address, // string or object
+    TransactionID,
   } = req.body;
 
   try {
@@ -567,11 +556,13 @@ export async function newOrderHandler(req: Request, res: Response) {
       itemGrandTotal,
     } = buildItems(order || []);
 
-    const subtotalFromApp = toNum(price, 0);
+    // We trust client `price` as discounted subtotal after BOGO.
+    // If client sent something wildly off, we could compare with computed.
+    const discountedSubtotalFromApp = toNum(price, 0);
     const computedSubtotal = itemGrandTotal || itemBaseTotal;
     const subtotal =
-      Math.abs(subtotalFromApp - computedSubtotal) < 0.01
-        ? subtotalFromApp
+      Math.abs(discountedSubtotalFromApp - computedSubtotal) < 0.01
+        ? discountedSubtotalFromApp
         : computedSubtotal;
 
     const finalBill = Math.max(
@@ -582,7 +573,7 @@ export async function newOrderHandler(req: Request, res: Response) {
     // ---- Persist local order ----
     const localOrder = await orderModel.create({
       order,
-      price: subtotal,
+      price: finalBill,           // ✅ store what customer actually pays
       handling: packagingTotal,
       delivery: deliveryTotal,
       paymentMethod,
@@ -591,9 +582,11 @@ export async function newOrderHandler(req: Request, res: Response) {
       discount: couponDiscount,
       loyalty: loyaltyDiscount,
       couponCode,
-      amountPayable: finalBill,
+      amountPayable: finalBill,   // kept for compatibility
       customerName: fullName,
       phone,
+      TransactionID: TransactionID || "",
+      // any other fields you store...
     });
     const savedOrder = await localOrder.save();
     if (!savedOrder) {
@@ -626,7 +619,6 @@ export async function newOrderHandler(req: Request, res: Response) {
     );
 
     const phoneStr = cleanPhone(phone);
-    const postedDateISO = isoNow();
     const payments: SalePayment[] = [
       {
         mode:
@@ -634,9 +626,8 @@ export async function newOrderHandler(req: Request, res: Response) {
             ? "Cash"
             : paymentMethod || "Online",
         amount: finalBill,
-        reference: req.body?.TransactionID?.toString?.() || "",
+        reference: TransactionID?.toString?.() || "",
         note: "",
-        postedDate: postedDateISO,
       },
     ];
 
@@ -698,13 +689,12 @@ export async function newOrderHandler(req: Request, res: Response) {
 
       delivery: {
         title: "",
-        advanceOrder: false,
         name: fullName,
         // @ts-ignore
         email: user?.email || "",
         phoneNumber: phoneStr,
         mode: deliveryMode,
-        address: deliveryAddressObj, // << object, not string
+        address: deliveryAddressObj,
       },
 
       sourceInfo: {
@@ -721,41 +711,46 @@ export async function newOrderHandler(req: Request, res: Response) {
         callbackHeaders: {},
       },
 
-      note:
-        (couponCode ? `Coupon: ${couponCode}. ` : "") + (req.body?.notes || ""),
+      note: (couponCode ? `Coupon: ${couponCode}. ` : "") + (req.body?.notes || ""),
     };
 
     const normA = normalizeRistaPayload(salePayload_A);
     console.log("[Rista Attempt A] Payload:", JSON.stringify(normA, null, 2));
     let resp = await postToRista(normA);
     if (resp.ok) {
-      const sendResponse: any = await sendCoins(
-        phoneStr,
-        earnedPoints.toString()
-      );
-      if (!sendResponse?.ok) {
-        res
-          .status(500)
-          .json({ status: false, message: "Internal Server Error" });
-        return;
-      }
-      res.status(201).json({
-        status: true,
-        message: "Sale created successfully",
-        data: savedOrder,
-        earnedPoints,
-        ristaResponse: resp.data,
-        summary: {
-          subtotal: subtotal,
-          couponDiscount,
-          loyaltyDiscount,
-          delivery: deliveryTotal,
-          packaging: packagingTotal,
-          amountPayable: finalBill,
-        },
-      });
-      return;
-    }
+  let coinsOk = false;
+  try {
+    // sendCoins returns boolean (true on success)
+    coinsOk = await sendCoins(phoneStr, earnedPoints.toString());
+    console.log("[sendCoins] ok:", coinsOk);
+  } catch (e) {
+    console.error("[sendCoins] error:", e);
+    coinsOk = false;
+  }
+
+  if (!coinsOk) {
+    console.warn("[sendCoins] awarding loyalty points failed. Continuing anyway.");
+  }
+
+  res.status(201).json({
+    status: true,
+    message: "Sale created successfully",
+    data: savedOrder,
+    earnedPoints,
+    coinsAwarded: coinsOk,  // expose whether it worked
+    ristaResponse: resp.data,
+    summary: {
+      subtotal: subtotal,
+      couponDiscount,
+      loyaltyDiscount,
+      delivery: deliveryTotal,
+      packaging: packagingTotal,
+      amountPayable: finalBill,
+    },
+  });
+  return;
+}
+
 
     // ----------------------
     // Attempt B: Sale-level positive amount (for tenants that treat sign internally)
@@ -784,33 +779,39 @@ export async function newOrderHandler(req: Request, res: Response) {
     console.log("[Rista Attempt B] Payload:", JSON.stringify(normB, null, 2));
     resp = await postToRista(normB);
     if (resp.ok) {
-      const sendResponse: any = await sendCoins(
-        phoneStr,
-        earnedPoints.toString()
-      );
-      if (!sendResponse?.ok) {
-        res
-          .status(500)
-          .json({ status: false, message: "Internal Server Error" });
-        return;
-      }
-      res.status(201).json({
-        status: true,
-        message: "Sale created successfully",
-        data: savedOrder,
-        earnedPoints,
-        ristaResponse: resp.data,
-        summary: {
-          subtotal: subtotal,
-          couponDiscount,
-          loyaltyDiscount,
-          delivery: deliveryTotal,
-          packaging: packagingTotal,
-          amountPayable: finalBill,
-        },
-      });
-      return;
-    }
+  let coinsOk = false;
+  try {
+    // sendCoins returns boolean (true on success)
+    coinsOk = await sendCoins(phoneStr, earnedPoints.toString());
+    console.log("[sendCoins] ok:", coinsOk);
+  } catch (e) {
+    console.error("[sendCoins] error:", e);
+    coinsOk = false;
+  }
+
+  if (!coinsOk) {
+    console.warn("[sendCoins] awarding loyalty points failed. Continuing anyway.");
+  }
+
+  res.status(201).json({
+    status: true,
+    message: "Sale created successfully",
+    data: savedOrder,
+    earnedPoints,
+    coinsAwarded: coinsOk,  // expose whether it worked
+    ristaResponse: resp.data,
+    summary: {
+      subtotal: subtotal,
+      couponDiscount,
+      loyaltyDiscount,
+      delivery: deliveryTotal,
+      packaging: packagingTotal,
+      amountPayable: finalBill,
+    },
+  });
+  return;
+}
+
 
     // ----------------------
     // Attempt C: Line-level prorated discounts; sale-level = 0
@@ -831,24 +832,39 @@ export async function newOrderHandler(req: Request, res: Response) {
     console.log("[Rista Attempt C] Payload:", JSON.stringify(normC, null, 2));
     resp = await postToRista(normC);
     if (resp.ok) {
-      res.status(201).json({
-        status: true,
-        message:
-          "Sale created successfully (line-level discounts fallback)",
-        data: savedOrder,
-        earnedPoints,
-        ristaResponse: resp.data,
-        summary: {
-          subtotal: subtotal,
-          couponDiscount,
-          loyaltyDiscount,
-          delivery: deliveryTotal,
-          packaging: packagingTotal,
-          amountPayable: finalBill,
-        },
-      });
-      return;
-    }
+  let coinsOk = false;
+  try {
+    // sendCoins returns boolean (true on success)
+    coinsOk = await sendCoins(phoneStr, earnedPoints.toString());
+    console.log("[sendCoins] ok:", coinsOk);
+  } catch (e) {
+    console.error("[sendCoins] error:", e);
+    coinsOk = false;
+  }
+
+  if (!coinsOk) {
+    console.warn("[sendCoins] awarding loyalty points failed. Continuing anyway.");
+  }
+
+  res.status(201).json({
+    status: true,
+    message: "Sale created successfully",
+    data: savedOrder,
+    earnedPoints,
+    coinsAwarded: coinsOk,  // expose whether it worked
+    ristaResponse: resp.data,
+    summary: {
+      subtotal: subtotal,
+      couponDiscount,
+      loyaltyDiscount,
+      delivery: deliveryTotal,
+      packaging: packagingTotal,
+      amountPayable: finalBill,
+    },
+  });
+  return;
+}
+
 
     // All attempts failed
     console.error("[Rista Attempt C] Rejected:", resp.error);

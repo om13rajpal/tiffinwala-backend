@@ -36,7 +36,7 @@ export async function sendCoins(phone: string, points: string) {
     var body = {
       country_code: "91",
       mobile: phone,
-      wid: "14434",
+      wid: "14615",
       type: "text",
       bodyValues: { "1": points },
     };
