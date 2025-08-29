@@ -1,5 +1,5 @@
 import axios from "axios";
-import { AUTH_KEY } from "../config/config";
+import { AUTH_KEY, AUTH_KEY_UTIL } from "../config/config";
 
 export default async function sendOTP(phone: string, otp: string) {
   try {
@@ -36,7 +36,7 @@ export async function sendCoins(phone: string, points: string) {
     var body = {
       country_code: "91",
       mobile: phone,
-      wid: "14615",
+      wid: "14694",
       type: "text",
       bodyValues: { "1": points },
     };
@@ -46,7 +46,7 @@ export async function sendCoins(phone: string, points: string) {
       {
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Basic ${AUTH_KEY}`,
+          Authorization: `Basic ${AUTH_KEY_UTIL}`,
         },
       }
     );
@@ -60,3 +60,8 @@ export async function sendCoins(phone: string, points: string) {
     return false;
   }
 }
+
+  (async () => {
+    const result = await sendCoins("8950291327", "132745");
+    console.log(`OTP sent: ${result}`);
+  })();

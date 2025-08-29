@@ -10,6 +10,7 @@ export const MONGO_URI = process.env.MONGO_URI;
 export const DOTPE_API_KEY = process.env.DOTPE_API_KEY
 
 export const AUTH_KEY = process.env.AUTH_KEY;
+export const AUTH_KEY_UTIL = process.env.AUTH_KEY_UTIL;
 
 export const BASE_URL = process.env.BASE_URI;
 
