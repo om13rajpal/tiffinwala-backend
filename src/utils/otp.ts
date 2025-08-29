@@ -60,8 +60,3 @@ export async function sendCoins(phone: string, points: string) {
     return false;
   }
 }
-
-  (async () => {
-    const result = await sendCoins("8950291327", "132745");
-    console.log(`OTP sent: ${result}`);
-  })();
