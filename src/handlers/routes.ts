@@ -23,6 +23,7 @@ import {
   setCouponEnabledByIdHandler,
   setCouponEnabledByCodeHandler,
   toggleCouponEnabledByIdHandler,
+  updateCouponHandler,
 } from "./coupon/coupon";
 import {
   getReceivedTransactionHandler,
@@ -116,6 +117,7 @@ couponRouter.get("/", getCouponsHandler);
 couponRouter.post("/", addCouponHandler);
 couponRouter.post("/verifyCoupon", verifyCouponHandler);
 couponRouter.delete("/:id", deleteCouponHander);
+couponRouter.put("/:id", updateCouponHandler);
 
 // NEW routes for status + toggle + status checker
 couponRouter.put("/:id/status", setCouponEnabledByIdHandler);        // body: { enabled: true|false }

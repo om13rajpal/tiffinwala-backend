@@ -12,6 +12,36 @@ const toBool = (v: any): boolean | null => {
   return null;
 };
 
+export async function updateCouponHandler(req: Request, res: Response) {
+  try {
+    const { id } = req.params;
+    const { code, discount, expiryDate, minOrder, maxValue, enabled } = req.body;
+
+    const update: any = {};
+    if (code !== undefined) update.code = code;
+    if (discount !== undefined) update.discount = discount;
+    if (expiryDate !== undefined) update.expiryDate = expiryDate;
+    if (minOrder !== undefined) update.minOrder = minOrder;
+    if (maxValue !== undefined) update.maxValue = maxValue;
+    if (enabled !== undefined) update.enabled = enabled;
+
+    const coupon = await couponModel.findByIdAndUpdate(id, update, { new: true });
+
+    if (!coupon) {
+      res.status(404).json({ status: false, message: "Coupon not found" });
+      return;
+    }
+
+    res.json({
+      status: true,
+      message: "Coupon updated successfully",
+      data: coupon,
+    });
+  } catch {
+    res.status(500).json({ status: false, message: "Error updating coupon" });
+  }
+}
+
 export async function addCouponHandler(req: Request, res: Response) {
   try {
     const { code, discount, expiryDate, minOrder, maxValue, enabled } = req.body;
