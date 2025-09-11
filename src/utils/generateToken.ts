@@ -30,7 +30,7 @@ export function generateLoginToken(phoneNumber: string) {
   };
 
   return jwt.sign(tokenData, LOGIN_JWT_SECRET!, {
-    expiresIn: "24h",
+    expiresIn: "8766h",
   });
 }
 
