@@ -23,7 +23,7 @@ import storeModel from "./models/store";
 import helmet from "helmet";
 import compression from "compression";
 import hpp from "hpp";
-
+import { versionModel } from "./models/version";
 connectMongo();
 
 const app = express();
@@ -81,6 +81,19 @@ app.use("/uploads", express.static("uploads"));
 
 app.get("/", (req, res) => {
   res.send("Backend is up and working");
+});
+
+// @ts-ignore
+app.get("/version", async (req, res) => {
+  try {
+    const version = await versionModel.findOne().sort({ createdAt: -1 });
+    if (!version) {
+      return res.status(404).json({ message: "Version not found" });
+    }
+    res.json({ version: version.version });
+  } catch (err) {
+    res.status(500).json({ message: "Error fetching version" });
+  }
 });
 
 app.post("/", async (req, res) => {
