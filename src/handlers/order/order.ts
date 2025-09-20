@@ -1,3 +1,4 @@
+// controllers/order.ts
 import axios from "axios";
 import { Request, Response } from "express";
 
@@ -9,6 +10,7 @@ import { generateToken } from "../../utils/generateToken";
 import userModel from "../../models/user";
 import orderModel from "../../models/order";
 import pointsModel from "../../models/points";
+import couponModel from "../../models/coupon"; // <— NEW
 import { sendCoins } from "../../utils/otp";
 
 // =====================
@@ -180,10 +182,15 @@ function round2(n: number): number {
   return Math.round(n * 100) / 100;
 }
 function isoNow(): string {
-  return new Date().toISOString();
+  return new Date().toISOString(); // always UTC ISO
 }
 function cleanPhone(p: any): string {
   return (p ?? "").toString().replace(/\s+/g, "").trim();
+}
+function nowUtcISO() { return new Date().toISOString(); }
+function coerceTzOffsetMinutes(v: any): number | undefined {
+  const n = Number(v);
+  return Number.isFinite(n) ? n : undefined;
 }
 
 function buildDeliveryAddress(
@@ -237,16 +244,8 @@ function resolveDeliveryMode(
 }
 
 // =====================
-// Smart builder (fixes double count)
+// Smart builder (prevents double count of options)
 // =====================
-
-/**
- * Auto-detects whether unitPrice already includes options, by comparing
- * the two possible totals vs the provided subtotal from the app.
- *
- * If INCLUDE model wins: unitPrice_in_payload = unitPrice_from_client - (optionsSum/qty).
- * If EXCLUDE model wins: unitPrice_in_payload = unitPrice_from_client (assumed base).
- */
 function buildItemsSmart(
   orderLines: any[],
   providedSubtotal: number | undefined
@@ -266,10 +265,7 @@ function buildItemsSmart(
 
   const pre: Pre[] = (orderLines || []).map((l) => {
     const qty = Math.max(0, toNum(l.quantity ?? l.qty ?? 0, 0));
-    const unitRaw = toNum(
-      l.unitPrice ?? l.price ?? l.rate ?? l.value ?? 0,
-      0
-    );
+    const unitRaw = toNum(l.unitPrice ?? l.price ?? l.rate ?? l.value ?? 0, 0);
     const baseHint = (() => {
       const v =
         l.originalUnitPrice ??
@@ -328,7 +324,6 @@ function buildItemsSmart(
   // Build final items with the chosen model
   let itemTotalSum = 0;
   const items: SaleItem[] = pre.map((p) => {
-    // Decide base unit for payload
     let baseUnit: number;
     if (chosenMode === "EXCLUDE") {
       baseUnit = p.baseHint ?? p.unitRaw; // assume raw is base
@@ -339,7 +334,7 @@ function buildItemsSmart(
         const hinted = p.baseHint ?? backOut;
         baseUnit = Math.max(0, round2(hinted));
       } else {
-        baseUnit = p.baseHint ?? p.unitRaw; // qty 0 edge case
+        baseUnit = p.baseHint ?? p.unitRaw; // qty 0 edge
       }
     }
 
@@ -348,8 +343,8 @@ function buildItemsSmart(
     const discountAmount = 0;
     const itemTotalAmount =
       chosenMode === "EXCLUDE"
-        ? round2(itemAmount + optionAmount)                // base + options
-        : round2(p.qty * p.unitRaw);                       // equals original raw*qty
+        ? round2(itemAmount + optionAmount) // base + options
+        : round2(p.qty * p.unitRaw);        // equals original raw*qty
 
     itemTotalSum = round2(itemTotalSum + itemTotalAmount);
 
@@ -372,7 +367,7 @@ function buildItemsSmart(
       taxAmountExcluded: 0,
       note: p.line.note || "",
       options: p.options,
-      discounts: [], // no item-level proration
+      discounts: [],
       taxes: [],
     };
   });
@@ -421,12 +416,69 @@ function buildCharges(
 }
 
 // =====================
+// Coupon logic (generic)
+// =====================
+
+/**
+ * Resolve/validate coupon and compute discount amount for a given subtotal.
+ * Supports:
+ *  - { percent: 10, maxValue: 20 }
+ *  - { amount: 50 }
+ *  - { discount: "10% off ..." }  // parsed
+ *  - minOrder, expiryDate, enabled
+ */
+async function computeCouponDiscount(
+  code: string | undefined,
+  subtotal: number
+): Promise<{ amount: number; reason?: string; couponDoc?: any }> {
+  if (!code) return { amount: 0 };
+
+  const coupon = await couponModel.findOne({ code: String(code).trim().toUpperCase() });
+  if (!coupon) return { amount: 0, reason: "coupon_not_found" };
+
+  if (coupon.enabled === false) return { amount: 0, reason: "coupon_disabled", couponDoc: coupon };
+
+  const minOrder = toNum(coupon.minOrder, 0);
+  if (subtotal < minOrder) return { amount: 0, reason: "min_order_not_met", couponDoc: coupon };
+
+  const exp: Date | undefined = coupon.expiryDate ? new Date(coupon.expiryDate) : undefined;
+  if (exp && isFinite(exp.getTime()) && exp.getTime() < Date.now()) {
+    return { amount: 0, reason: "coupon_expired", couponDoc: coupon };
+  }
+
+  // Determine rate/amount
+  // @ts-ignore
+  let flatAmount = toNum(coupon.amount, 0);
+  // @ts-ignore
+  let percent = toNum(coupon.percent, NaN);
+  if (!Number.isFinite(percent)) {
+    // try parse from string like "10% off on your orders"
+    if (typeof coupon.discount === "string") {
+      const m = /(\d+(?:\.\d+)?)\s*%/i.exec(coupon.discount);
+      if (m) percent = Number(m[1]);
+    }
+  }
+
+  let calculated = 0;
+  if (Number.isFinite(percent)) {
+    calculated = round2(Math.max(0, subtotal * (Number(percent) / 100)));
+    const cap = toNum(coupon.maxValue, Infinity);
+    calculated = Math.min(calculated, cap);
+  } else if (flatAmount > 0) {
+    calculated = round2(flatAmount);
+  }
+
+  // never exceed subtotal
+  calculated = Math.min(calculated, round2(subtotal));
+  return { amount: calculated, couponDoc: coupon };
+}
+
+// =====================
 // Normalizer + Posting
 // =====================
 function normalizeRistaPayload(p: Partial<RistaSalePayload>): RistaSalePayload {
   const out: any = { ...p };
 
-  // stringify phones
   const prune = (obj: any) =>
     Object.fromEntries(
       Object.entries(obj).filter(([_, v]) => v !== undefined && v !== null)
@@ -496,26 +548,28 @@ async function postToRista(
 export async function newOrderHandler(req: Request, res: Response) {
   const {
     order,        // array of lines
-    price,        // items subtotal already discounted on client
+    price,        // items subtotal from app (pre-discount or post — we recompute anyway)
     handling = 0,
     delivery = 0,
     phone,
     paymentMethod,
     paymentStatus, // "completed" or "pending"
     orderMode,
-    discount = 0,  // coupon amount (ABS) — NOT shown to Rista
-    loyalty = 0,   // loyalty rupees (ABS) — ONLY discount sent to Rista
+    discount = 0,      // optional absolute value sent by app
+    loyalty = 0,       // absolute rupees
     couponCode,
     address,
     TransactionID,
+
+    // NEW (optional from client)
+    clientPlacedAt,          // ISO (UTC) made on device: new Date().toISOString()
+    clientTzOffsetMinutes,   // e.g., -330 for IST
   } = req.body;
 
   try {
-    // ---- Monetary derivations ----
+    // ---- Monetary base ----
     const packagingTotal = Math.max(0, toNum(handling, 0));
-    const deliveryTotal = Math.max(0, toNum(delivery, 0));
-    const couponDiscount = Math.max(0, toNum(discount, 0)); // info only
-    const loyaltyDiscount = Math.max(0, toNum(loyalty, 0));
+    const deliveryTotal  = Math.max(0, toNum(delivery, 0));
     const subtotalFromApp = round2(toNum(price, 0));
 
     // ---- User ----
@@ -529,23 +583,52 @@ export async function newOrderHandler(req: Request, res: Response) {
       [user.firstName, user.lastName].filter(Boolean).join(" ").trim() ||
       String(phoneStr || "");
 
-    // ---- Build items with auto-detection (prevents double counting) ----
+    // ---- Build items & subtotal (server-trust) ----
     const { items: payloadItems, itemTotalSum, chosenMode } = buildItemsSmart(
       order || [],
       subtotalFromApp
     );
 
-    // Prefer app subtotal if close, else fallback to our computed sum
+    // Prefer app subtotal if close, else fallback to computed sum
     const itemTotalAmount =
       Math.abs(itemTotalSum - subtotalFromApp) <= 0.01
         ? subtotalFromApp
         : itemTotalSum;
 
-    // Final payable: price already contains coupon etc. Subtract ONLY loyalty, then add charges
+    // ---- Coupon (generic; DB-driven) ----
+    // Start from client-provided amount (if any)
+    let couponDiscount = Math.max(0, toNum(discount, 0));
+    let couponReason: string | undefined;
+
+    if (couponDiscount === 0 && couponCode) {
+      const { amount, reason } = await computeCouponDiscount(
+        String(couponCode).trim().toUpperCase(),
+        itemTotalAmount
+      );
+      couponDiscount = amount;
+      couponReason = reason;
+    }
+    // Ensure not over subtotal
+    couponDiscount = Math.min(couponDiscount, itemTotalAmount);
+
+    // ---- Loyalty ----
+    const loyaltyDiscount = Math.max(0, toNum(loyalty, 0));
+
+    // ---- Final Bill (item subtotal – coupon – loyalty + charges) ----
     const finalBill = Math.max(
       0,
-      round2(itemTotalAmount - loyaltyDiscount + deliveryTotal + packagingTotal)
+      round2(itemTotalAmount - couponDiscount - loyaltyDiscount + deliveryTotal + packagingTotal)
     );
+
+    // ---- Canonical timestamps ----
+    const utcPlacedISO = ((): string => {
+      try {
+        return clientPlacedAt ? new Date(clientPlacedAt).toISOString() : nowUtcISO();
+      } catch {
+        return nowUtcISO();
+      }
+    })();
+    const tzOffsetMin = coerceTzOffsetMinutes(clientTzOffsetMinutes); // may be undefined
 
     // ---- Persist local order ----
     const localOrder = await orderModel.create({
@@ -563,7 +646,11 @@ export async function newOrderHandler(req: Request, res: Response) {
       customerName: fullName,
       phone,
       TransactionID: TransactionID || "",
-      breakdownMode: chosenMode, // for debugging: "INCLUDE" | "EXCLUDE"
+      breakdownMode: chosenMode, // "INCLUDE" | "EXCLUDE"
+      // NEW ↓↓↓
+      orderDate: utcPlacedISO,                // store UTC
+      clientTzOffsetMinutes: tzOffsetMin ?? undefined,
+      couponReason: couponReason ?? undefined // for debugging/reporting
     });
     const savedOrder = await localOrder.save();
     if (!savedOrder) {
@@ -571,7 +658,7 @@ export async function newOrderHandler(req: Request, res: Response) {
       return;
     }
 
-    // ---- Loyalty redemption (server-side) ----
+    // ---- Loyalty redemption (server-side)
     let redeemedPoints = 0;
     if (loyaltyDiscount > 0) {
       const current = toNum((user as any).loyaltyPoints, 0);
@@ -584,7 +671,7 @@ export async function newOrderHandler(req: Request, res: Response) {
       }
     }
 
-    // ---- Loyalty earn (on items subtotal; adjust as you wish) ----
+    // ---- Loyalty earn (items subtotal)
     let earnedPoints = 0;
     const slabs = await pointsModel.find({});
     for (const slab of slabs) {
@@ -625,7 +712,7 @@ export async function newOrderHandler(req: Request, res: Response) {
         ];
     const balanceAmount = isCOD ? finalBill : 0;
 
-    // ---- Only loyalty at sale level (negative), no item proration ----
+    // ---- Only loyalty at sale level in Rista (negative)
     const saleLevelDiscounts: SaleItemDiscount[] =
       loyaltyDiscount > 0
         ? [
@@ -654,11 +741,14 @@ export async function newOrderHandler(req: Request, res: Response) {
         phoneNumber: phoneStr,
       },
 
-      items: payloadItems,                // base unit + options (no double count)
-      itemTotalAmount: itemTotalAmount,   // equals chosen model sum
+      items: payloadItems,
+      itemTotalAmount: itemTotalAmount,
       directChargeAmount: totalDirectCharges,
       chargeAmount: totalDirectCharges,
 
+      // We are NOT sending coupon discount to Rista (only loyalty), to keep
+      // parity with your existing integration. If you want coupon also there,
+      // add another sale-level discount entry.
       discountAmount: loyaltyDiscount > 0 ? -loyaltyDiscount : 0,
       discounts: saleLevelDiscounts,
 
@@ -700,7 +790,6 @@ export async function newOrderHandler(req: Request, res: Response) {
         callbackHeaders: {},
       },
 
-      // keep coupon in notes (not sent as discount)
       note:
         (couponCode ? `Coupon used in app: ${couponCode}. ` : "") +
         (req.body?.notes || ""),
@@ -710,7 +799,7 @@ export async function newOrderHandler(req: Request, res: Response) {
     const norm = normalizeRistaPayload(salePayload);
     const resp = await postToRista(norm);
 
-    // notify coins (optional)
+    // notify coins
     let coinsOk = false;
     try {
       if (earnedPoints > 0) {
@@ -732,8 +821,8 @@ export async function newOrderHandler(req: Request, res: Response) {
         ristaResponse: resp.data,
         summary: {
           subtotal: itemTotalAmount,
-          couponDiscount,          // info-only
-          loyaltyDiscount,         // shown at sale-level in Rista
+          couponDiscount,          // now computed from DB + validated
+          loyaltyDiscount,
           delivery: deliveryTotal,
           packaging: packagingTotal,
           amountPayable: finalBill,
